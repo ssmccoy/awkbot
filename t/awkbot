@@ -1,0 +1,94 @@
+#!/bin/sh
+
+# if first arg of the script is -n, it doesnt get forked into the background
+
+[ "$1" == "-n" ] && stay=1 && shift
+[ "$1" == "-m" ] && mod=$2 && shift 2
+[ "$1" == "-p" ] && pre=$2 && shift 2
+
+bins=${pre}{g,}awk
+modules="base_modules xmb_features t/*.load $mod" paths="./,t/,lib/,bin/"
+args=
+#args="-f lib/awkdoc.awk -f lib/mysql.awk -f awkbot.awk"
+export start=1
+#export enable_mysql=1 enable_awkdoc=1
+
+function test_var() { echo enable_mysql - $enable_mysql; }
+test_var
+
+# [prefix=str]
+#function show_files() { for file in $@; do for dir in `eval echo {$paths}'; do
+#		all=good$(stuff)
+
+function source_files() { for file in $@; do for dir in `eval echo {$paths}`; do
+		export nfile=$dir$file dir
+		[ -f $nfile ] || continue
+		file -b $nfile | grep -q shell && source $nfile && echo sourced $nfile
+	
+		echo going for $nfile
+		_x=$(awk -F'[ \t]*:[ \t]*' '/^#*[ \t]*DEP:/ { print $2 } /^[ \t]+#*[ \t]*DEP:/ {
+			#print "1x" $1 "2x" $2 "3x" $3 "4x" $4 >"/dev/stderr";
+			if (ENVIRON[$2]) printf "%s ", $3 }' $nfile) &&
+			export iargs="$iargs $_x"
+		done
+	done
+}
+
+for i in `eval echo $bins`
+do
+	which $i &>/dev/null || continue
+	$i -W version 2>&1 | grep -q "GNU Awk [34].[12]" || continue
+
+	export awk=$i
+	break
+done
+
+if [ -z $awk ]
+then
+	echo No suitable gawk found on the system, GNU Awk 3.1 or later needed
+	exit 1
+fi
+
+test_var
+nofileloop=1
+[[ -z $nofileloop ]] && for file in $modules
+do
+	test_var
+	for dir in `eval echo {$paths}`; do
+		export nfile=$dir$file
+		[ -f $nfile ] && [ ! -z `eval echo -n \$seen_$nfile` ] || continue
+		test_var
+	#[ ! -f "$file" ] && continue ||
+	#[ -f $nfile ] && f=$f\ $nfile #||
+	f=$f\ $nfile
+	eval seen_$nfile=1
+	#[ -f t/$file ] && f=$f\ t/$file #||
+	#[ -f lib/$file ] && f=$f\ lib/$file #||
+	#[ -f bin/$file ] && f=$f\ bin/$file
+	done
+	
+	for rfile in $f
+	do
+		[[ -z "$rfile" ]] && break
+		file -b "$rfile" | grep -q shell && source $rfile && echo sourced $rfile
+		
+		echo going for $rfile
+	
+	done
+done
+
+[ ! -z $nofileloop ] && source_files $modules
+
+[ -z "$iargs" ] &&
+	echo no include arg, probably something failed &&
+	exit 1
+
+echo iargs - "$iargs" # irags
+echo cur   - "$@"
+exit 0
+
+[ -z $stay ] &&
+	(exec nohup $pre$awk $iargs "$@" &) ||
+	while sleep 1
+    do echo "[awkbot] [++] `date`" && $awk $args "$@"
+    done

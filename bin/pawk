@@ -1,0 +1,169 @@
+#!/usr/bin/awk -f 
+# AWK Proc, the awk preprocessor
+# ----------------------------------------------------------------------------- 
+# "THE BEER-WARE LICENSE" (Revision 43) borrowed from FreeBSD's jail.c: 
+# <tag@cpan.org> wrote this file.  As long as you retain this notice you 
+# can do whatever you want with this stuff. If we meet some day, and you think 
+# this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy 
+# -----------------------------------------------------------------------------
+
+#include <ord.awk>
+#include <assert.awk>
+#include <config.awk>
+#include <getopt.awk>
+
+BEGIN {
+    # We need to do a better job of determining what awk we're running in here
+    awk = "cat"
+
+#    while ((opt = getopt(ARGC, ARGV, "sc:")) != -1) {
+#        if (opt == "c") configfile = Optarg
+#        if (opt == "s") awk = "cat"
+#    }
+
+    # File to processes
+    filename = ARGV[--ARGC]
+
+    if (filename == "-c") {
+        configfile = ARGV[--ARGC]
+        filename   = ARGV[--ARGC]
+    }
+
+    while (ARGC > 1) {
+        awk = awk " " ARGV[--ARGC]
+    }
+
+    proc_include(filename)
+    printf chr(10) | awk
+    close(awk)
+}
+
+function proc_include (filename     ,stop,il,path,k,location,test,junk) {
+    split(ENVIRON["AWKPATH"], path, ":")
+
+    for (k = 1; path[k]; k++) {
+        test = path[k] "/" filename
+        if ((getline junk <test) >= 0) {
+            close(test)
+            location = test
+            break
+        }
+    }
+
+    assert(location, "Unable to locate: " filename " in " ENVIRON["AWKPATH"])
+
+    while (getline < location) proc_run(location)
+}
+
+function proc_run (location     ,il,junk) {
+        if (match($0, /^#define ([[:alnum:]]*) (.*)/, il)) {
+            define[il[1]] = il[2]
+            while ($NF == "\\") {
+                getline junk < location
+                define[il[1]] = define[il[1]] junk
+            }
+        }
+        else if (match($0, /^#ifdef ([[:alnum:]]*)$/, il)) {
+            if (define[il[1]]) {
+                while (getline < location) {
+                    if (/^#else/) {
+                        while (!/^#endif/) getline < location
+                        return
+                    }
+                    if (/^#endif/) return
+                    proc_run(location)
+                }
+            }
+            else {
+                while (getline < location) {
+                    if (/^#else/) {
+                        getline < location           # Skip this line
+                        while (!/^#endif/) {
+                            proc_run(location)       # This strange way of
+                            getline < location       # doing things is to make
+                        }                            # sure the macros get
+                        return                       # stripped
+                    }
+                }
+            }
+        }
+        else if (match($0, /^#include <([^>]+)>/, il)) {
+            if (!included[il[1]]) {
+                included[il[1]] = 1
+                proc_include(il[1])
+            }
+        }
+        else {
+            print | awk
+        }
+}
+
+
+# This is actually a library, but we cannot #include its since we ARE the
+# preprocessor ;-)
+# ord.awk --- do ord and chr
+
+# Global identifiers:
+#    _ord_:        numerical values indexed by characters
+#    _ord_init:    function to initialize _ord_
+#
+# Arnold Robbins, arnold@gnu.org, Public Domain
+# 16 January, 1992
+# 20 July, 1992, revised
+
+BEGIN    { _ord_init() }
+
+function _ord_init(    low, high, i, t)
+{
+    low = sprintf("%c", 7) # BEL is ascii 7
+        if (low == "\a") {    # regular ascii
+            low = 0
+                high = 127
+        } else if (sprintf("%c", 128 + 7) == "\a") {
+# ascii, mark parity
+            low = 128
+                high = 255
+        } else {        # ebcdic(!)
+            low = 0
+                high = 255
+        }
+
+    for (i = low; i <= high; i++) {
+        t = sprintf("%c", i)
+            _ord_[t] = i
+    }
+}
+function ord(str,    c)
+{
+# only first character is of interest
+    c = substr(str, 1, 1)
+        return _ord_[c]
+}
+
+function chr(c)
+{
+# force c to be numeric by adding 0
+    return sprintf("%c", c + 0)
+}
+
+# assert --- assert that a condition is true. Otherwise exit.
+
+#
+# Arnold Robbins, arnold@gnu.org, Public Domain
+# May, 1993
+
+function assert(condition, string)
+{
+    if (! condition) {
+        printf("%s:%d: assertion failed: %s\n",
+                FILENAME, FNR, string) > "/dev/stderr"
+            _assert_exit = 1
+            exit 1
+    }
+}
+
+    END {
+        if (_assert_exit)
+            exit 1
+    }
+
