@@ -50,7 +50,7 @@ function mysql_query (query    ,input,key,i,call,resource) {
 
     if (getline input < mysql[resource]) {
         for (i = split(input, key, "\t"); i > 0; i--)
-            mysql[resource, i] = key[i]
+            mysql[resource, i] = gensub(/\\t/, "\t", "g", key[i])
     }
 
     return resource
@@ -60,15 +60,22 @@ function mysql_fetch_assoc (resource,row  ,input,i,fields) {
     if (getline input < mysql[resource]) {
         fields = split(input, row, "\t")
         for (i = 1; i <= fields; i++)
-            row[mysql[resource, i]] = row[i]
+            row[mysql[resource, i]] = gensub(/\\t/, "\t", "g", row[i])
     }
 
     return fields
 }
 
-function mysql_fetch_row (resource,row  ,input) {
-    if (getline input < mysql[resource])
-        return split(input, row, "\t")
+function mysql_fetch_row (resource,row  ,input,r,i) {
+    if (getline input < mysql[resource]) {
+        r = split(input, row, "\t")
+
+        for (i = 0; i <= r; i++) {
+            row[i] = gensub(/\\t/, "\t", "g", row[i]) # Unescape tabs
+        }
+
+        return r
+    }
 
     return 0
 }
