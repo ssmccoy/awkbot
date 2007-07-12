@@ -76,17 +76,27 @@ function irc_handler_ctcp (nick, host, recipient, action, argument) {
 }
 
 function irc_handler_privmsg (nick, host, recipient, message, arg  \
-    ,direct,target,address,action,t,q,a) {
+    ,direct,target,address,action,c_msg,argc,t,q,a) {
 
     if (recipient ~ /^#/) target = recipient
     else                  target = nick
 
+    # Unfortunately, the API doesn't tell me how many arguments are
+    # available...but I need the number of arguments to join.  I might want to
+    # fix this some day.
+    argc = 0
+    for (key in arg) argc++ 
+
     if (substr(arg[1], 0, length(irc["nickname"])) == irc["nickname"]) {
         direct  = 1
         shift(arg)
+        c_msg   = join(arg, 0, argc, OFS)
     }
     else {
         direct  = (target != recipient)
+        # It's either privmsg, or they're not talking to us, so the clean
+        # message is the whole message.
+        c_msg   = message
     }
 
     if (target == recipient) address = nick ": "
@@ -101,6 +111,14 @@ function irc_handler_privmsg (nick, host, recipient, message, arg  \
         else if (arg[2] == "is") {
             awkbot_db_answer(arg[1], join(arg, 3, sizeof(arg), " "))
             irc_privmsg(target, address "Okay")
+        }
+        # It's only numbers and stuff
+        else if (c_msg ~ /^[0-9*+\/() -]*$/) {
+            action = "bc -q"
+            print c_msg |& action
+            action |& getline a
+            close(action)
+            irc_privmsg(target, address a)
         }
         else {
             q = gensub(/\?$/, "", "g", join(arg, 1, sizeof(arg), SUBSEP))
