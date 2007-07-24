@@ -73,6 +73,22 @@ function awkbot_db_answer (question,answer) {
 
 function awkbot_db_forget (question) {
     mysql_finish(mysql_query("DELETE FROM qna WHERE question = " \
-        mysql_quote(question)))
+                mysql_quote(question)))
     return 1
+}
+
+function awkbot_db_info (keyword    ,result,rv,row) {
+    rv = mysql_query("select keyword, text from info where keyword like " \
+            mysql_quote(keyword "%"))
+
+    if (mysql_fetch_assoc(rv, row)) { 
+        result = row["keyword"] row["text"]
+    }
+    else {
+        result = 0
+    }
+
+    mysql_finish(rv)
+
+    return result
 }

@@ -9,7 +9,7 @@
 
 #include <ord.awk>
 #include <assert.awk>
-#include <config.awk>
+# #include <config.awk>
 #include <getopt.awk>
 #define STRAPPED 1
 

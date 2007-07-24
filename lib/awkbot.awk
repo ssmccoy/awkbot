@@ -81,16 +81,19 @@ function irc_handler_privmsg (nick, host, recipient, message, arg  \
     if (recipient ~ /^#/) target = recipient
     else                  target = nick
 
-    # Unfortunately, the API doesn't tell me how many arguments are
-    # available...but I need the number of arguments to join.  I might want to
-    # fix this some day.
-    argc = 0
-    for (key in arg) argc++ 
-
-    if (substr(arg[1], 0, length(irc["nickname"])) == irc["nickname"]) {
+    # A special case...
+    if (substr(arg[1], 0, length(irc["nickname"])) == irc["nickname"] &&
+            arg[1] !~ irc["nickname"] "\\+\\+") {
         direct  = 1
         shift(arg)
-        c_msg   = join(arg, 0, argc, OFS)
+
+        # Unfortunately, the API doesn't tell me how many arguments are
+        # available...but I need the number of arguments to join.  I might want
+        # to fix # this some day.
+        argc = 0
+        for (key in arg) argc++ 
+
+        c_msg   = join(arg, 1, argc + 1, OFS)
     }
     else {
         direct  = (target != recipient)
@@ -113,12 +116,15 @@ function irc_handler_privmsg (nick, host, recipient, message, arg  \
             irc_privmsg(target, address "Okay")
         }
         # It's only numbers and stuff
-        else if (c_msg ~ /^[0-9*+\/() -]*$/) {
+        else if (c_msg ~ /^[0-9^.*+\/() -]*$/) {
             action = "bc -q"
-            print c_msg |& action
+            print "scale=10" |& action
+            print c_msg      |& action
+            print "quit"     |& action
             action |& getline a
             close(action)
-            irc_privmsg(target, address a)
+            irc_privmsg(target, address (a + 0)) 
+                # Coerce the result into an array
         }
         else {
             q = gensub(/\?$/, "", "g", join(arg, 1, sizeof(arg), SUBSEP))
@@ -130,8 +136,30 @@ function irc_handler_privmsg (nick, host, recipient, message, arg  \
     if (match(arg[1], /^(.*)\+\+$/, t)) awkbot_db_karma_inc(t[1])
     if (match(arg[1], /^(.*)--$/, t)) awkbot_db_karma_dec(t[1])
 
-    if (arg[1] == "awkdoc")
-        irc_privmsg(target, address awkdoc(arg[2]))
+    if (arg[1] == "awkdoc") {
+        if (arg[2]) {
+            irc_privmsg(target, address awkdoc(arg[2]))
+        }
+        else {
+            irc_privmsg(target, address "Usage is awkdoc < identifier >")
+        }
+    }
+    else if (arg[1] == "awkinfo") {
+        if (arg[2]) {
+            a = awkbot_db_info(arg[2])
+
+            if (a) {
+                irc_privmsg(target, address a)
+            }
+            else {
+                irc_privmsg(target, address "I don't know anything about " \
+                        arg[2])
+            }
+        }
+        else {
+            irc_privmsg(target, address "Usage is awkinfo < keyword >")
+        }
+    }
 }
 
 function awkbot_karma_get (reply_to,nickname     ,points)  {
