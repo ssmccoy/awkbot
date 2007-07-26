@@ -6,13 +6,13 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy 
 # -----------------------------------------------------------------------------
 
-#include <assert.awk>
-#include <config.awk>
-#include <awkbot_db_mysql.awk>
-#include <irc.awk>
-#include <awkdoc.awk>
-#include <join.awk>
-#include <queue.awk>
+#import <assert.awk>
+#import <config.awk>
+#import <awkbot_db_mysql.awk>
+#import <irc.awk>
+#import <awkdoc.awk>
+#import <join.awk>
+#import <queue.awk>
 
 #define TEST 1
 
@@ -28,9 +28,6 @@ BEGIN {
 #endif
 
 BEGIN {
-#    assert(irc,            "Awkbot depends on irc.awk")
-#    assert(awkbot_config,  "Awkbot depends on config.awk")
-
     VERSION = "awkbot $Revision: 412 $"
 
     config_load("etc/awkbot.conf")
@@ -39,6 +36,8 @@ BEGIN {
     assert(config("irc.nickname"), "nickname not specified in config")
     assert(config("irc.altnick"), "altnick not specified in config")
     assert(config("irc.server"), "server not specified in config")
+
+    awkbot_db_init()
 
     irc_set("debug",    config("irc.debug"))
 
@@ -49,7 +48,36 @@ BEGIN {
     irc_register("connect")
     irc_register("privmsg")
     irc_register("ctcp")
+    irc_register("error")
 
+    print "Using", awkbot_db_status_livefeed(), "as live feed from awkbot"
+
+    # XXX Nasty hack, make this not need direct access to the irc array!
+    irc["tempfile"] = awkbot_db_status_livefeed()
+    irc_connect(config("irc.server"))
+}
+
+END {
+    awkbot_db_status_connected(0)
+}
+
+# Nasty hack to clean up every few records
+NR % 3 == 0 {
+    print "DEBUG: Truncating file.."
+    printf "" > irc["tempfile"] 
+    fflush(irc["tempfile"])
+    close(irc["tempfile"])
+}
+$1 == "say" { 
+    _msg = $3
+    for (i = 4; i < NF; i++) {
+        _msg = _msg " " $i
+    }
+    print "Saying " _msg " to " $2
+    irc_privmsg($2, _msg)
+}
+
+function irc_handler_error () {
     irc_connect(config("irc.server"))
 }
 
@@ -60,6 +88,8 @@ function irc_handler_connect (  channel,key,msg) {
     msg = config("irc.startup")
 
     if (msg) irc_sockwrite(msg "\r\n")
+
+    awkbot_db_status_connected(1)
 }
 
 function irc_handler_ctcp (nick, host, recipient, action, argument) {
@@ -73,6 +103,18 @@ function irc_handler_ctcp (nick, host, recipient, action, argument) {
             irc_ctcp_reply(nick, action, argument)
         }
     }
+}
+
+func calc (expr ,result,bc) {
+    bc = "bc -q"
+    print "scale=10" |& bc
+    print expr       |& bc
+    print "quit"     |& bc
+    bc |& getline result
+    close(bc)
+
+    # coerce to number
+    return result + 0
 }
 
 function irc_handler_privmsg (nick, host, recipient, message, arg  \
@@ -117,14 +159,7 @@ function irc_handler_privmsg (nick, host, recipient, message, arg  \
         }
         # It's only numbers and stuff
         else if (c_msg ~ /^[0-9^.*+\/() -]*$/) {
-            action = "bc -q"
-            print "scale=10" |& action
-            print c_msg      |& action
-            print "quit"     |& action
-            action |& getline a
-            close(action)
-            irc_privmsg(target, address (a + 0)) 
-                # Coerce the result into an array
+            irc_privmsg(target, address calc(c_msg)) 
         }
         else {
             q = gensub(/\?$/, "", "g", join(arg, 1, sizeof(arg), SUBSEP))
@@ -159,6 +194,9 @@ function irc_handler_privmsg (nick, host, recipient, message, arg  \
         else {
             irc_privmsg(target, address "Usage is awkinfo < keyword >")
         }
+    }
+    else if (arg[1] == nick) {
+        irc_privmsg(target, address "Talking about yourself, are we?")
     }
 }
 

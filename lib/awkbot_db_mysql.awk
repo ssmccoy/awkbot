@@ -6,15 +6,11 @@
 # -----------------------------------------------------------------------------
 # deps: assert.awk mysql.awk
 
-#include <assert.awk>
-#include <mysql.awk>
+#import <assert.awk>
+#import <config.awk>
+#import <mysql.awk>
 
-BEGIN {
-    # Config wont get parsed until awkbot's BEGIN {} block
-    irc_register("initialize")
-}
-
-function irc_handler_initialize () {
+function awkbot_db_init () {
     mysql_login(config("mysql.username"), config("mysql.password"))
     mysql_db(config("mysql.database"))
 }
@@ -75,6 +71,36 @@ function awkbot_db_forget (question) {
     mysql_finish(mysql_query("DELETE FROM qna WHERE question = " \
                 mysql_quote(question)))
     return 1
+}
+
+function awkbot_db_status_running (running) {
+    mysql_finish(mysql_query("UPDATE status SET running = " \
+        running ? 1 : 0))
+
+    if (! running) 
+        mysql_finish(mysql_query("UPDATE status SET livefeed = null"))
+}
+
+function awkbot_db_status_connected (connected) {
+    mysql_finish(mysql_query("UPDATE status SET connected = " \
+        connected ? 1 : 0))
+}
+
+function awkbot_db_status_livefeed (filename    ,rv,row) {
+    if (filename) {
+        mysql_finish(mysql_query("UPDATE status SET livefeed = " \
+                    mysql_quote(filename)))
+    }
+    else {
+        rv = mysql_query("SELECT livefeed FROM status")
+        
+        mysql_fetch_row(rv, row)
+        filename = row[1]
+
+        mysql_finish(rv)
+    }
+
+    return filename
 }
 
 function awkbot_db_info (keyword    ,result,rv,row) {

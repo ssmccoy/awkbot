@@ -45,3 +45,34 @@ INSERT INTO `qna` VALUES ('mysql_quote','something tag really needs to add to my
 INSERT INTO `qna` VALUES ('xmb','the guy with incompatible libraries');
 INSERT INTO `qna` VALUES ('mysql.awk','http://www.blisted.org/svn/modules/mysql.awk/ until tag writes documentation');
 
+
+CREATE TABLE `status` (
+    `running` boolean not null default false,
+    `livefeed` varchar(120) default null
+);
+
+INSERT INTO `status` (running, livefeed) VALUES (FALSE, NULL);
+
+-- Make status a table with only one record, always
+-- Mysql is ghetto like that... we can't raise errors, we have to actually just
+-- create one with an invalid statement...
+
+DELIMITER / 
+
+CREATE TRIGGER t_status_final BEFORE INSERT ON status
+FOR EACH ROW
+BEGIN
+    DECLARE temp integer;
+    SELECT `INSERT is not allowed` INTO temp FROM status;
+END;
+/
+
+CREATE TRIGGER t_status_final_d BEFORE DELETE ON status
+FOR EACH ROW
+BEGIN
+    DECLARE temp integer;
+    SELECT `DELETE is not allowed` INTO temp FROM status;
+END;
+/
+
+DELIMITER ;

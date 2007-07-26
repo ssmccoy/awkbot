@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 
-#include <cgi-lib.awk>
+#import <cgi-lib.awk>
 
 BEGIN {
     cgi_params(query)

@@ -6,6 +6,29 @@ BEGIN {
 
 # Set this globally so we don't have to ensure it happens anywhere else...
     ORS = "\r\n"
+
+    # Handle uploads...
+
+    # gawk only
+    match(HEADER["Content-Disposition"], / filename="([^;]*)"/, r)
+    filename = r[1] ? r[1] : "multipart/mixed"
+
+    if (filename && multipart) {
+        tempfilename = tempfile("cgi-awk")
+    }
+
+    # When it's multipart, save headers and body together
+    if (multipart) {
+        for (key in HEADER) print key ":", HEADER[key] >> tempfilename
+        print "\r\n" >> tempfilename
+    }
+
+    while (buffersize < length(input)) {
+        getline i
+        print i >> tempfile
+    }
+
+    print cgi_read_buffer() >> tempfilename
 }
 
 function cgi_params (query    ,each,pairs,i) {
