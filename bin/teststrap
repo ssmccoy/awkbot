@@ -7,7 +7,7 @@ do
     tmpfile=`tempfile`
     echo processing $file
     # Strip comments, stolen from perl!
-    sed -f cpp-filter.sed $file | cpp -I lib -I /usr/share/awk > $tmpfile
+    sed -f cpp-filter.sed $file | cpp -I src -I /usr/share/awk > $tmpfile
     echo running $file
     awk -f $tmpfile
     if [ $? = 1 ]

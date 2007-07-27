@@ -4,14 +4,14 @@
 
 # Run the bootstrap, this doesn't do jack but allocate a file.
 bootstrap=`tempfile`
-cpp -I /usr/share/awk -I lib lib/awkbot-boot.awk 2> /dev/null > $bootstrap
+cpp -I /usr/share/awk -I src src/awkbot-boot.awk 2> /dev/null > $bootstrap
 livedata=`awk -f $bootstrap /dev/null`
 
 # Done with this one
 rm $bootstrap
 
 awkbot=`tempfile`
-cpp -I /usr/share/awk/ -I lib lib/awkbot.awk 2> /dev/null > $awkbot
+cpp -I /usr/share/awk/ -I src src/awkbot.awk 2> /dev/null > $awkbot
 
 # Give our continuous input through a pipe to tail.  tail -f never exits.
 # Note, that this means awkbot never exits unless killed from the outside.
