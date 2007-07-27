@@ -1,4 +1,4 @@
-
+#import <irc.awk>
 BEGIN {
     irc_set("debug", 1)
 

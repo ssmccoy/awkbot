@@ -62,7 +62,7 @@ END {
 }
 
 # Nasty hack to clean up every few records
-NR % 3 == 0 {
+NR % 10000 == 0 {
     print "DEBUG: Truncating file.."
     printf "" > irc["tempfile"] 
     fflush(irc["tempfile"])

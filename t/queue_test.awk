@@ -1,5 +1,5 @@
 # test queue.awk
-#include <queue.awk>
+#import <queue.awk>
 
 BEGIN {
     push(queue, 1)

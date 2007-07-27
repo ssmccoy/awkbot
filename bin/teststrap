@@ -1,0 +1,18 @@
+#!/bin/sh
+
+failed=1
+
+for file in t/*.awk
+do 
+    tmpfile=`tempfile`
+    echo processing $file
+    # Strip comments, stolen from perl!
+    sed -f cpp-filter.sed $file | cpp -I lib -I /usr/share/awk > $tmpfile
+    echo running $file
+    awk -f $tmpfile
+    if [ $? = 1 ]
+    then 
+        echo "$file failed"
+        failed=`expr $failed + 1`
+    fi
+done

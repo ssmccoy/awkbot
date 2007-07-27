@@ -6,7 +6,7 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy 
 # -----------------------------------------------------------------------------
 
-#include <assert.awk>
+#import <assert.awk>
 
 function push (array, value,i) {
     i = sizeof(array) + 1
