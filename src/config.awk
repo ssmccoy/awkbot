@@ -19,7 +19,7 @@ function config_parse (config_data,level,filename    ,l,t,current,closing) {
 
     while ( getline < filename ) {
         # Strip coments
-        sub(/#.*$/, "")
+        sub(/^[\t ]*#.*$/, "")
 
         if (config_data["debug"]) {
             printf "read:%s:%d %s\n", filename, NR, $0
