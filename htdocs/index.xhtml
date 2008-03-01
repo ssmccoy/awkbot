@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>AWK Paste!</title>
+  </head>
+
+  <body>
+    <h1>AWK Paste</h1>
+    <form action="/cgi/paste.cgi" method="post">
+      <fieldset>
+        <div>
+          <label for="description">Description</label>
+          <input type="text" name="description" size="30"/>
+        </div>
+        <div>
+          <label for="name">Your name</label>
+          <input type="text" name="name" size="30"/>
+        </div>
+        <div>
+          <label for="paste">Content</label>
+          <textarea name="content" rows="40" cols="80"></textarea>
+        </div>
+        <div>
+          <input type="submit" name="submit" value="Paste it!"/>
+        </div>
+      </fieldset>
+    </form>
+  </body>
+</html>

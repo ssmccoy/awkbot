@@ -118,3 +118,30 @@ function awkbot_db_info (keyword    ,result,rv,row) {
 
     return result
 }
+
+function awkbot_db_paste_add (nick, description, content) {
+    mysql_finish(mysql_query("INSERT INTO paste (nick, subject, content) " \
+            " VALUES (" mysql_quote(nick) "," \
+                        mysql_quote(description) "," \
+                        mysql_quote(content) ")"))
+}
+
+function awkbot_db_paste_get (id,row    ,rv) {
+    rv = mysql_query("SELECT nick, subject, content FROM paste " \
+            "WHERE paste_id = " mysql_quote(id))
+
+    mysql_fetch_assoc(rv, row)
+    mysql_finish(rv)
+}
+
+function awkbot_db_paste_last (     result,row,rv) {
+    rv = mysql_query("SELECT max(paste_id) as paste_id FROM paste");
+
+    if (mysql_fetch_assoc(rv, row)) {
+        result = row["paste_id"]
+    }
+
+    mysql_finish(rv)
+
+    return result
+}

@@ -70,7 +70,7 @@ NR % 10000 == 0 {
 }
 $1 == "say" { 
     _msg = $3
-    for (i = 4; i < NF; i++) {
+    for (i = 4; i <= NF; i++) {
         _msg = _msg " " $i
     }
     print "Saying " _msg " to " $2

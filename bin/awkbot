@@ -15,6 +15,7 @@ cpp -I /usr/share/awk/ -I src src/awkbot.awk 2> /dev/null > $awkbot
 
 # Give our continuous input through a pipe to tail.  tail -f never exits.
 # Note, that this means awkbot never exits unless killed from the outside.
+chmod 666 $livedata
 tail -f $livedata | awk -f $awkbot
 
 # Clean up our mess
