@@ -2,11 +2,12 @@
 
 #import <cgi-lib.awk>
 #import <config.awk>
+#import <tempfile.awk>
 #import <awkbot_db_mysql.awk>
 
 BEGIN {
     cgi_params(query)
-    cgi_headers("text/plain")
+    cgi_headers("text/html")
 
     config_load("etc/awkbot.conf")
     awkbot_db_init()
@@ -18,8 +19,11 @@ BEGIN {
         nick    = paste["nick"]
         subject = paste["subject"]
         content = paste["content"]
+        link    = sprintf("%s?id=%d", config("paste.cgi"), id)
 
-        gsub(/\\n/, "\n", content)
+        gsub(/\r\\n/, "\n", content)
+        gsub(/\\\t/,  "\t", content)
+        gsub(/\\\\/,  "\\", content) # Outcoming escapes
     }
     else {
         stream  = awkbot_db_status_livefeed()
@@ -31,19 +35,44 @@ BEGIN {
         awkbot_db_paste_add(nick, subject, content)
         # This has synchronization issues...but what the hell, this is awk
         id      = awkbot_db_paste_last()
+        link    = sprintf("%s?id=%d", config("paste.cgi"), id)
     
         if (id) {
-            printf("say %s %s pasted %s at %s?id=%s\n",    \
+            printf("say %s %s pasted %s at %s\n",    \
                     config("paste.channel"), nick, subject,\
-                    config("paste.cgi"), id) >> stream
+                    link) >> stream
     
             close(stream)
         }
     }
 
+    workfile = tempfile("paste")
+    template = workfile ".html"
 
-    print "Id:", id
-    print "Nick:", nick
-    print "Subject:", subject
-    print content
+    print content > workfile
+    close(workfile)
+
+    system("vim -i NONE -c \"syn on\" -c \"set syntax=awk\" -c \"set nu\"" \
+            " -c TOhtml -c wq -c q " workfile " &> /dev/null")
+
+    while (getline content < template) {
+        print content
+
+        # Ghetto little thing to inject a title
+        if (content ~ /<body/) {
+            print "<h1>AWK Paste:", "<a href=\"" link "\"/>" id "</a></h1>"
+            print "<p><b>Nick:", nick, "<br/>"
+            print "Subject:", subject, "<br/>"
+            print "</b></p><hr/>"
+        }
+    }
+    close(template)
+
+#   print "Id:", id
+#   print "Nick:", nick
+#   print "Subject:", subject
+#   print content
+
+    system("rm " workfile)
+    system("rm " template)
 }

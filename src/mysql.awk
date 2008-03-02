@@ -110,6 +110,7 @@ function mysql_cleanup (  i) {
 }
 
 function mysql_quote (string,   result) {
-    result = gensub("([^\\\\])'", "\\1\\\\'", "g", string)
+    gsub(/\\/, "\\\\", string)
+    result = gensub(/(['\''"])/, "\\\\\\1", "g", string)
     return "'" result "'"
 }
