@@ -16,7 +16,7 @@ function uri_decode (string     ,i,len,result) {
     # standard awk has no Nth match
     len = length(string)
 
-    while ((i = index(string, "%")) && i + 2 < len) {
+    while ((i = index(string, "%")) && i + 2 <= len) {
         result = result substr(string, 1, i - 1)
         result = result chr(dec( substr(string, i + 1, 2) ))
         string = substr(string, i + 3)

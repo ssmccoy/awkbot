@@ -4,6 +4,7 @@
 #import <config.awk>
 #import <tempfile.awk>
 #import <awkbot_db_mysql.awk>
+#include "config.h"
 
 BEGIN {
     cgi_params(query)
@@ -22,7 +23,6 @@ BEGIN {
         link    = sprintf("%s?id=%d", config("paste.cgi"), id)
 
         gsub(/\r\\n/, "\n", content)
-        gsub(/\\\t/,  "\t", content)
         gsub(/\\\\/,  "\\", content) # Outcoming escapes
     }
     else {
@@ -46,33 +46,47 @@ BEGIN {
         }
     }
 
+#ifdef GAWK
+    hilight = "highlight -I -l -S awk"
+    print content |& hilight
+    close(hilight, "to")
+
+    while (hilight |& getline content) {
+#else
     workfile = tempfile("paste")
     template = workfile ".html"
 
     print content > workfile
     close(workfile)
 
+#ifdef VIM
     system("vim -i NONE -c \"syn on\" -c \"set syntax=awk\" -c \"set nu\"" \
             " -c TOhtml -c wq -c q " workfile " &> /dev/null")
-
+#else
+    system("highlight -I -l -S awk -o " template " " workfile)
+#endif
     while (getline content < template) {
+#endif
+        if (content ~ /<\/body>/) {
+            printf "<a href=\"%s\">Create a new Paste</a>\r\n", \
+                config("paste.form")
+        }
+
         print content
 
         # Ghetto little thing to inject a title
+        # works in both gawk and vim... 
         if (content ~ /<body/) {
-            print "<h1>AWK Paste:", "<a href=\"" link "\"/>" id "</a></h1>"
-            print "<p><b>Nick:", nick, "<br/>"
-            print "Subject:", subject, "<br/>"
-            print "</b></p><hr/>"
+            print "<h1>AWK Paste:", "<a href=\"" link "\">" id "</a></h1>"
+            print "<p><b>Nick:", nick, "<br>"
+            print "Subject:", subject, "<br>"
+            print "</b></p><hr>"
         }
     }
-    close(template)
+    close(hilight, "from")
 
-#   print "Id:", id
-#   print "Nick:", nick
-#   print "Subject:", subject
-#   print content
-
+#ifndef GAWK
     system("rm " workfile)
     system("rm " template)
+#endif
 }

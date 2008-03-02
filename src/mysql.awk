@@ -45,12 +45,13 @@ function mysql_query (query    ,input,key,i,call,resource) {
             mysql[resource])
 
     print query | call
+    print query >> "/tmp/debug.log"
 
     close(call)
 
     if (getline input < mysql[resource]) {
         for (i = split(input, key, "\t"); i > 0; i--)
-            mysql[resource, i] = gensub(/\\t/, "\t", "g", key[i])
+            mysql[resource, i] = key[i]
     }
 
     return resource
@@ -60,7 +61,7 @@ function mysql_fetch_assoc (resource,row  ,input,i,fields) {
     if (getline input < mysql[resource]) {
         fields = split(input, row, "\t")
         for (i = 1; i <= fields; i++)
-            row[mysql[resource, i]] = gensub(/\\t/, "\t", "g", row[i])
+            row[mysql[resource, i]] = row[i]
     }
 
     return fields
@@ -111,6 +112,7 @@ function mysql_cleanup (  i) {
 
 function mysql_quote (string,   result) {
     gsub(/\\/, "\\\\", string)
-    result = gensub(/(['\''"])/, "\\\\\\1", "g", string)
-    return "'" result "'"
+    gsub(/'/, "\\\'", string)
+
+    return "'" string "'"
 }

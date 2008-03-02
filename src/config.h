@@ -1,0 +1,1 @@
+#define GAWK 1
