@@ -14,6 +14,10 @@ BEGIN {
 function uri_decode (string     ,i,len,result) {
     # for portability, we have to continuously work in the argument provided...
     # standard awk has no Nth match
+
+    # Must gsub first, otherwise decoding will break the content.
+    gsub("+", " ", string)
+
     len = length(string)
 
     while ((i = index(string, "%")) && i + 2 <= len) {
@@ -24,7 +28,6 @@ function uri_decode (string     ,i,len,result) {
 
     result = result string
 
-    gsub("+", " ", result)
     return result
 }
 
