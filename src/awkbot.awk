@@ -168,8 +168,23 @@ function irc_handler_privmsg (nick, host, recipient, message, arg  \
         }
     }
 
-    if (match(arg[1], /^(.*)\+\+$/, t)) awkbot_db_karma_inc(t[1])
-    if (match(arg[1], /^(.*)--$/, t)) awkbot_db_karma_dec(t[1])
+    if (match(arg[1], /^(.*)\+\+$/, t)) {
+        if (t[1] == nick) {
+            irc_privmsg(target, address "changing your own karma is bad karma")
+            awkbot_db_karma_dec(nick)
+        }
+        else {
+            awkbot_db_karma_inc(t[1])
+        }
+    }
+    if (match(arg[1], /^(.*)--$/, t)) {
+        if (t[1] == nick) {
+            irc_privmsg(target, address "don't be dumb")
+        }
+        else {
+            awkbot_db_karma_dec(t[1])
+        }
+    }
 
     if (arg[1] == "awkdoc") {
         if (arg[2]) {

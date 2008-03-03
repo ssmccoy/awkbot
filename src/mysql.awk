@@ -45,7 +45,6 @@ function mysql_query (query    ,input,key,i,call,resource) {
             mysql[resource])
 
     print query | call
-    print query >> "/tmp/debug.log"
 
     close(call)
 
@@ -112,7 +111,7 @@ function mysql_cleanup (  i) {
 
 function mysql_quote (string,   result) {
     gsub(/\\/, "\\\\", string)
-    gsub(/'/, "\\\'", string)
+    gsub(/'/, "\\'", string)
 
     return "'" string "'"
 }
