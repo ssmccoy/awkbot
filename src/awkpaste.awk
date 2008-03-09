@@ -45,27 +45,34 @@ BEGIN {
             close(stream)
         }
     }
+#define TEMPLATE_FILE               \
+    workfile = tempfile("paste");   \
+    template = workfile ".html";    \
+                                    \
+    print content > workfile;       \
+    close(workfile)
 
+#ifdef VIM
+    TEMPLATE_FILE
+
+    system("vim -i NONE -c \"syn on\" -c \"set syntax=awk\" -c \"set nu\"" \
+            " -c TOhtml -c wq -c q " workfile " &> /dev/null")
+
+    while (getline content < template) {
+#else
 #ifdef GAWK
-    hilight = "highlight -I -l -S awk"
+    hilight = "highlight -I -l -k monospace -S awk"
     print content |& hilight
     close(hilight, "to")
 
     while (hilight |& getline content) {
 #else
-    workfile = tempfile("paste")
-    template = workfile ".html"
+    TEMPLATE_FILE
 
-    print content > workfile
-    close(workfile)
+    system("highlight -I -l -k monospace -S awk -o " template " " workfile)
 
-#ifdef VIM
-    system("vim -i NONE -c \"syn on\" -c \"set syntax=awk\" -c \"set nu\"" \
-            " -c TOhtml -c wq -c q " workfile " &> /dev/null")
-#else
-    system("highlight -I -l -S awk -o " template " " workfile)
-#endif
     while (getline content < template) {
+#endif
 #endif
         if (content ~ /<\/body>/) {
             printf "<a href=\"%s\">Create a new Paste</a>\r\n", \
@@ -83,10 +90,17 @@ BEGIN {
             print "</b></p><hr>"
         }
     }
-    close(hilight, "from")
-
-#ifndef GAWK
-    system("rm " workfile)
+#define CLEANUP_FILE        \
+    system("rm " workfile); \
     system("rm " template)
+
+#ifdef VIM
+    CLEANUP_FILE
+#else
+#ifndef GAWK
+    CLEANUP_FILE
+#else
+    close(hilight, "from")
+#endif
 #endif
 }
