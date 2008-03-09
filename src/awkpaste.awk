@@ -8,8 +8,6 @@
 
 BEGIN {
     cgi_params(query)
-    cgi_headers("text/html")
-
     config_load("etc/awkbot.conf")
     awkbot_db_init()
 
@@ -45,62 +43,75 @@ BEGIN {
             close(stream)
         }
     }
-#define TEMPLATE_FILE               \
-    workfile = tempfile("paste");   \
-    template = workfile ".html";    \
-                                    \
-    print content > workfile;       \
-    close(workfile)
+
+    if (query["view"] == "text") {
+        cgi_headers("text/plain")
+        print content
+        exit
+    }
+    else {
+        cgi_headers("text/html")
+
+#define TEMPLATE_FILE                   \
+        workfile = tempfile("paste");   \
+        template = workfile ".html";    \
+                                        \
+        print content > workfile;       \
+        close(workfile)
 
 #ifdef VIM
-    TEMPLATE_FILE
+        TEMPLATE_FILE
 
-    system("vim -i NONE -c \"syn on\" -c \"set syntax=awk\" -c \"set nu\"" \
-            " -c TOhtml -c wq -c q " workfile " &> /dev/null")
+        system("vim -i NONE -c \"syn on\" -c \"set syntax=awk\" " \
+               " -c \"set nu\" -c TOhtml -c wq -c q " workfile " &> /dev/null")
 
-    while (getline content < template) {
+        while (getline content < template) {
 #else
 #ifdef GAWK
-    hilight = "highlight -I -l -k monospace -S awk"
-    print content |& hilight
-    close(hilight, "to")
+        hilight = "highlight -I -l -k monospace -S awk"
 
-    while (hilight |& getline content) {
+        print content |& hilight
+        close(hilight, "to")
+
+        while (hilight |& getline content) {
 #else
-    TEMPLATE_FILE
+        TEMPLATE_FILE
 
-    system("highlight -I -l -k monospace -S awk -o " template " " workfile)
+        system("highlight -I -l -k monospace -S awk -o " template " " workfile)
 
-    while (getline content < template) {
+        while (getline content < template) {
 #endif
 #endif
-        if (content ~ /<\/body>/) {
-            printf "<a href=\"%s\">Create a new Paste</a>\r\n", \
-                config("paste.form")
-        }
+            if (content ~ /<\/body>/) {
+                printf "<a href=\"%s?id=%s&view=text\">Plain Text</a>",\
+                    config("paste.cgi"), id
+                printf " | <a href=\"%s\">Create a new Paste</a>\r\n", \
+                    config("paste.form")
+            }
 
-        print content
+            print content
 
-        # Ghetto little thing to inject a title
-        # works in both gawk and vim... 
-        if (content ~ /<body/) {
-            print "<h1>AWK Paste:", "<a href=\"" link "\">" id "</a></h1>"
-            print "<p><b>Nick:", nick, "<br>"
-            print "Subject:", subject, "<br>"
-            print "</b></p><hr>"
+            # Ghetto little thing to inject a title
+            # works in both gawk and vim... 
+            if (content ~ /<body/) {
+                print "<h1>AWK Paste:", "<a href=\"" link "\">" id "</a></h1>"
+                print "<p><b>Nick:", nick, "<br>"
+                print "Subject:", subject, "<br>"
+                print "</b></p><hr>"
+            }
         }
-    }
-#define CLEANUP_FILE        \
-    system("rm " workfile); \
-    system("rm " template)
+#define CLEANUP_FILE            \
+        system("rm " workfile); \
+        system("rm " template)
 
 #ifdef VIM
-    CLEANUP_FILE
+        CLEANUP_FILE
 #else
 #ifndef GAWK
-    CLEANUP_FILE
+        CLEANUP_FILE
 #else
-    close(hilight, "from")
+        close(hilight, "from")
 #endif
 #endif
+    }
 }
