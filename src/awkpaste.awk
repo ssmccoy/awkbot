@@ -12,16 +12,23 @@ BEGIN {
     awkbot_db_init()
 
     if (query["id"]) {
-        awkbot_db_paste_get(query["id"], paste)
+        if (awkbot_db_paste_get(query["id"], paste)) {
+            id      = query["id"]
+            nick    = paste["nick"]
+            subject = paste["subject"]
+            content = paste["content"]
+            link    = sprintf("%s?id=%d", config("paste.cgi"), id)
 
-        id      = query["id"]
-        nick    = paste["nick"]
-        subject = paste["subject"]
-        content = paste["content"]
-        link    = sprintf("%s?id=%d", config("paste.cgi"), id)
-
-        gsub(/\r\\n/, "\n", content)
-        gsub(/\\\\/,  "\\", content) # Outcoming escapes
+            gsub(/\r\\n/, "\n", content) # CRLF to LF
+# This should be dealt with in mysql.awk
+#           gsub(/\\t/,   "\t", context) # Outcoming tabs.
+            gsub(/\\\\/,  "\\", content) # Outcoming escapes
+        }
+        else {
+            print "Location: /404.html" 
+            print ORS
+            exit
+        }
     }
     else {
         stream  = awkbot_db_status_livefeed()
