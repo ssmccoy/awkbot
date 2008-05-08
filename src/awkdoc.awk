@@ -3,7 +3,7 @@ function awkdoc(Keyword ,result,line,get,Func,manpage) {
     if (Keyword ~ /^[A-Z]+$/) Func = 0
     else Func = 1
 
-    manpage = "man awk";
+    manpage = "man gawk";
 
     Keyword = "^       " Keyword (match(Keyword,"/") ? "" : 
                                             (Func ? "\\(" : " "))

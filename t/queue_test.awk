@@ -17,4 +17,6 @@ BEGIN {
     assert((shift(queue) == 3), "3")
     assert((shift(queue) == 2), "4")
     assert((shift(queue) == 1), "5")
+
+    exit 0
 }

@@ -1,18 +1,33 @@
 #!/bin/sh
 
-failed=1
+failed=0
+total=0
 
 for file in t/*.awk
 do 
+    total=`expr $total + 1`
     tmpfile=`tempfile`
-    echo processing $file
     # Strip comments, stolen from perl!
-    sed -f cpp-filter.sed $file | cpp -I src -I /usr/share/awk > $tmpfile
-    echo running $file
+    cpp -I src -I /usr/share/awk $file 2> /dev/null > $tmpfile
+    echo "executing test $file"
     awk -f $tmpfile
     if [ $? = 1 ]
     then 
         echo "$file failed"
         failed=`expr $failed + 1`
+    else
+        echo "$file passed"
     fi
+
+    # Clean up temp file
+    rm $tmpfile
 done
+
+if [ $failed -gt 0 ]
+then
+    echo "$failed/$total tests failed"
+    exit 1
+else
+    echo "All tests passed"
+    exit 0
+fi
