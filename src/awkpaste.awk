@@ -19,7 +19,7 @@ BEGIN {
             content = paste["content"]
             link    = sprintf("%s?id=%d", config("paste.cgi"), id)
 
-            gsub(/\r\\n/, "\n", content) # CRLF to LF
+            gsub(/\\r\\n|\\n/, "\n", content) # CRLF to LF
 # This should be dealt with in mysql.awk
 #           gsub(/\\t/,   "\t", context) # Outcoming tabs.
             gsub(/\\\\/,  "\\", content) # Outcoming escapes

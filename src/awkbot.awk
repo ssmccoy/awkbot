@@ -187,12 +187,14 @@ function irc_handler_privmsg (nick, host, recipient, message, arg  \
     }
 
     if (arg[1] == "awkdoc") {
-        if (arg[2]) {
-            irc_privmsg(target, address awkdoc(arg[2]))
-        }
-        else {
-            irc_privmsg(target, address "Usage is awkdoc < identifier >")
-        }
+        irc_privmsg(target, address "awkdoc is temporarily disabled")
+
+#       if (arg[2]) {
+#           irc_privmsg(target, address awkdoc(arg[2]))
+#       }
+#       else {
+#           irc_privmsg(target, address "Usage is awkdoc < identifier >")
+#       }
     }
     else if (arg[1] == "awkinfo") {
         if (arg[2]) {
