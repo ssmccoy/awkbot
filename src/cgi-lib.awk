@@ -6,6 +6,8 @@ BEGIN {
         while ( getline ) _cgilib_in = _cgilib_in $0
     if (ENVIRON["REQUEST_METHOD"] == "GET")
         _cgilib_in = ENVIRON["QUERY_STRING"]
+    if (ENVIRON["REQUEST_METHOD"] == "HEAD")
+        _cgilib_in = ENVIRON["QUERY_STRING"]
 
 # Set this globally so we don't have to ensure it happens anywhere else...
     ORS = "\r\n"
