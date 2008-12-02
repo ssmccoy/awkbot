@@ -36,6 +36,32 @@ BEGIN {
         nick    = query["name"]
         subject = query["description"]
         content = query["content"]
+
+        errmsg  = ""
+
+        if (length(nick) == 0) {
+            errmsg = errmsg \
+                     "<b>Unable to submit paste, no name supplied</b><br/>"
+        }
+        if (length(subject) == 0) {
+            errmsg = errmsg \
+                     "<b>Unable to submit paste, no description " \
+                      "supplied</b><br/>"
+        }
+        if (length(content) == 0) {
+            errmsg = errmsg \
+                     "<b>Unable to submit paste, no content to paste!</b><br/>"
+        }
+
+        if (length(errmsg)) {
+            print "Content-Type: text/html"
+            print ORS
+            print "<html><head><title>Input Validation Error</title></head>"
+            print "<body><span style=\"color: red\">"
+            print errmsg 
+            print "</span></body></html>"
+            exit 1
+        }
     
         awkbot_db_paste_add(nick, subject, content)
         # This has synchronization issues...but what the hell, this is awk

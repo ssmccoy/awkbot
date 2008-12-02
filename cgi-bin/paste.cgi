@@ -12,4 +12,4 @@ cpp -I /usr/share/awk/ -I src src/awkpaste.awk 2> /dev/null > $awkpaste
 awk -f $awkpaste
 
 # Clean up our mess
-#rm $awkpaste
+rm $awkpaste
