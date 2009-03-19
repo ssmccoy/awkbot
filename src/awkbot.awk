@@ -161,6 +161,10 @@ function irc_handler_privmsg (nick, host, recipient, message, arg  \
         else if (c_msg ~ /^[0-9^.*+\/() -]*$/) {
             irc_privmsg(target, address calc(c_msg)) 
         }
+        else if (arg[1] == "uptime") {
+            a = awkbot_db_uptime();
+            irc_privmsg(target, address a)
+        }
         else {
             q = gensub(/\?$/, "", "g", join(arg, 1, sizeof(arg), SUBSEP))
             if (a = awkbot_db_question(tolower(q))) 

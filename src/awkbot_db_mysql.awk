@@ -146,3 +146,16 @@ function awkbot_db_paste_last (     result,row,rv) {
 
     return result
 }
+
+function awkbot_db_uptime (     result,row,rv) {
+    rv = mysql_query("SELECT TIMEDIFF(started, CURRENT_TIMESTAMP)" \
+        "AS uptime FROM status");
+
+    if (mysql_fetch_assoc(rv, row)) {
+        result = row["uptime"]
+    }
+
+    mysql_finish(rv)
+
+    return result
+}

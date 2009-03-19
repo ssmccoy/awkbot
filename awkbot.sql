@@ -48,7 +48,9 @@ INSERT INTO `qna` VALUES ('mysql.awk','http://www.blisted.org/svn/modules/mysql.
 
 CREATE TABLE `status` (
     `running` boolean not null default false,
-    `livefeed` varchar(120) default null
+    `connected` boolean not null default false,
+    `livefeed` varchar(120) default null,
+    `started` timestamp not null default current_timestamp
 );
 
 INSERT INTO `status` (running, livefeed) VALUES (FALSE, NULL);
