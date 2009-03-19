@@ -50,6 +50,8 @@ BEGIN {
     irc_register("ctcp")
     irc_register("error")
 
+    awkbot_db_status_running(1)
+
     print "Using", awkbot_db_status_livefeed(), "as live feed from awkbot"
 
     # XXX Nasty hack, make this not need direct access to the irc array!

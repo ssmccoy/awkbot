@@ -7,6 +7,8 @@ bootstrap=`tempfile`
 cpp -I /usr/share/awk -I src src/awkbot-boot.awk 2> /dev/null > $bootstrap
 livedata=`awk -f $bootstrap /dev/null`
 
+echo "using $livedata"
+
 # Done with this one
 rm $bootstrap
 

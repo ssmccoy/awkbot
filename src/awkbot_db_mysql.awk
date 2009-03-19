@@ -77,8 +77,14 @@ function awkbot_db_status_running (running) {
     mysql_finish(mysql_query("UPDATE status SET running = " \
         running ? 1 : 0))
 
-    if (! running) 
-        mysql_finish(mysql_query("UPDATE status SET livefeed = null"))
+    if (! running) {
+        mysql_finish(mysql_query("UPDATE status SET livefeed = NULL"))
+        mysql_finish(mysql_query("UPDATE status SET started = NULL"))
+    }
+    else {
+        mysql_finish( \
+                mysql_query("UPDATE status SET started = CURRENT_TIMESTAMP"))
+    }
 }
 
 function awkbot_db_status_connected (connected) {
@@ -148,7 +154,7 @@ function awkbot_db_paste_last (     result,row,rv) {
 }
 
 function awkbot_db_uptime (     result,row,rv) {
-    rv = mysql_query("SELECT TIMEDIFF(started, CURRENT_TIMESTAMP)" \
+    rv = mysql_query("SELECT TIMEDIFF(CURRENT_TIMESTAMP, started)" \
         "AS uptime FROM status");
 
     if (mysql_fetch_assoc(rv, row)) {
