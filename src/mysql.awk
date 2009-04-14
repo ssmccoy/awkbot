@@ -128,7 +128,7 @@ function mysql_dequote (string, result,i,l,c) {
     result = ""
     l = length(string)
 
-    for (i = 1; i < l; i++) {
+    for (i = 1; i <= l; i++) {
         c = substr(string, i, 1)
 
         if (c == "\\") {
