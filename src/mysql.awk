@@ -18,6 +18,11 @@ BEGIN {
     }
 
     mysql["resource_id"] = 1
+
+    __mysql_dequote["r"]  = "\r"
+    __mysql_dequote["n"]  = "\n"
+    __mysql_dequote["t"]  = "\t"
+    __mysql_dequote["\\"] = "\\"
 }
 
 function mysql_db (db)      { mysql["database"] = db    }
@@ -73,7 +78,7 @@ function mysql_split (row, input,   r,i) {
      r = split(input, row, "\t")
 
      for (i = 0; i <= r; i++) {
-         gsub(/\\t/, "\t", row[i])
+         row[i] = mysql_dequote(row[i])
      }
 
      return r
@@ -114,6 +119,30 @@ function mysql_cleanup (  i) {
             while (mysql[resource,i])
                 delete mysql[resource, i++]
         }
+}
+
+# Scan a string for mysql escaped tokens and replace them with the appropriate
+# character.  This is a fairly slow operation for large strings but it's
+# necessary.
+function mysql_dequote (string, result,i,l,c) {
+    result = ""
+    l = length(string)
+
+    for (i = 1; i < l; i++) {
+        c = substr(string, i, 1)
+
+        if (c == "\\") {
+            # This simply shouldn't happen...
+            # if ((i + 1) == l) continue;
+            c = substr(string, ++i, 1)
+            result = result __mysql_dequote[c]
+        }
+        else {
+            result = result c
+        }
+    }
+
+    return result
 }
 
 function mysql_quote (string,   result) {
