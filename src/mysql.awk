@@ -133,7 +133,7 @@ function mysql_dequote (string, result,i,l,c) {
 
         if (c == "\\") {
             # This simply shouldn't happen...
-            # if ((i + 1) == l) continue;
+            ## if ((i + 1) == l) continue;
             c = substr(string, ++i, 1)
             result = result __mysql_dequote[c]
         }
