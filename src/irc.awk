@@ -37,16 +37,33 @@ function irc_parse_connect () {
 function irc_parse_privmsg (    arg,i,t) {
     if ($0 ~ /\x01.*\x01\r/) {
         if (irc["register", "ctcp"]) {
-            match($0, ":([^!]*)!([^ ]*) PRIVMSG ([^ ]*) :([^\r]*)", t)
-            match($0, ":\x01([A-Z][A-Z]*) ?([^\x01]*)\x01", arg)
-            irc_handler_ctcp(t[1], t[2], t[3], arg[1], arg[2])
+            # This is the real biatch!
+#           match($0, ":([^!]*)!([^ ]*) PRIVMSG ([^ ]*) :([^\r]*)", t)
+            split($0, t, /(:|!|\r| PRIVMSG )/)
+
+            match(t[5], ":\x01([A-Z][A-Z]*)")
+
+            # Snag the first word and save it in arg[1
+            arg[1] = substr(t[5], RSTART + 2, RLENGTH - 3)
+
+            # Save the end of it's index
+            i = (RSTART + 2) + (RLENGTH - 3)
+
+            # Now match the whole string until the \x01
+            match($0, ":\x01([^\x01]*)\x01")
+
+            # Copy from the end-index of the first word until the last \x01,
+            # giving the second half of the string (plus a whitespace)
+            arg[2] = substr(t[5], i + 1, RLENGTH - (i + 3))
+
+            irc_handler_ctcp(t[2], t[3], t[4], arg[1], arg[2])
         }
     }
     else {
         if (irc["register", "privmsg"]) {
-            match($0, ":([^!]*)!([^ ]*) PRIVMSG ([^ ]*) :([^\r]*)", t)
-            split(t[4], arg)
-            irc_handler_privmsg(t[1], t[2], t[3], t[4], arg)
+            split($0, t, /(:|!|\r| PRIVMSG )/)
+            split(t[5], arg)
+            irc_handler_privmsg(t[2], t[3], t[4], t[5], arg)
         }
     }
 }

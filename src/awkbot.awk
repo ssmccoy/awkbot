@@ -120,7 +120,7 @@ func calc (expr ,result,bc) {
 }
 
 function irc_handler_privmsg (nick, host, recipient, message, arg  \
-    ,direct,target,address,action,c_msg,argc,t,q,a) {
+    ,direct,target,address,action,c_msg,argc,t,q,a,s) {
 
     if (recipient ~ /^#/) target = recipient
     else                  target = nick
@@ -168,27 +168,36 @@ function irc_handler_privmsg (nick, host, recipient, message, arg  \
             irc_privmsg(target, address a)
         }
         else {
-            q = gensub(/\?$/, "", "g", join(arg, 1, sizeof(arg), SUBSEP))
+            # Portable equivilent
+            q = join(arg, 1, sizeof(arg), SUBSEP)
+            gsub(/\?$/, "", t)
+
+            # q = gensub(/\?$/, "", "g", join(arg, 1, sizeof(arg), SUBSEP))
             if (a = awkbot_db_question(tolower(q))) 
                 irc_privmsg(target, address a)
         }
     }
 
-    if (match(arg[1], /^(.*)\+\+$/, t)) {
-        if (t[1] == nick) {
+    if (match(arg[1], /^(.*)\+\+$/)) {
+        s = substr(arg[1], length(arg[1]) - 1)
+
+        if (s == nick) {
             irc_privmsg(target, address "changing your own karma is bad karma")
             awkbot_db_karma_dec(nick)
         }
         else {
-            awkbot_db_karma_inc(t[1])
+            awkbot_db_karma_inc(s)
         }
     }
-    if (match(arg[1], /^(.*)--$/, t)) {
-        if (t[1] == nick) {
+    if (match(arg[1], /^(.*)--$/)) {
+        s = substr(arg[1], length(arg[1]) - 1)
+
+        if (s == nick) {
             irc_privmsg(target, address "don't be dumb")
+            awkbot_db_karma_dec(nick)
         }
         else {
-            awkbot_db_karma_dec(t[1])
+            awkbot_db_karma_dec(s)
         }
     }
 
