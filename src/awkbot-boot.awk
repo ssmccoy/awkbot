@@ -11,6 +11,7 @@
 # This is used so awkbot's tempfile can be allocated and stored where it can be
 # fetched prior to further execution...
 
+#import <tempfile.awk>
 #import <config.awk>
 #import <awkbot_db_mysql.awk>
 
@@ -20,11 +21,4 @@ BEGIN {
     awkbot_db_init()
     awkbot_db_status_livefeed(tempfilename)
     print tempfilename
-}
-
-func tempfile (prefix   ,call,result) {
-    call = "tempfile -p " prefix 
-    call | getline result
-    close(call) 
-    return result
 }
