@@ -19,6 +19,23 @@ BEGIN {
     socket_catalyst = "telnet"
     if (!socket_catalyst) "which nc"     | getline socket_catalyst
     if (!socket_catalyst) "which telnet" | getline socket_catalyst
+
+    if (!socket_use_fifo != 0) {
+        # If no one has set "use_fifo", then test to see if it's there and
+        # assume we'll use it if it is...
+
+        __socket_test_fifo = "which mkfifo"
+        __socket_test_fifo | getline __socket_test
+
+        if (__socket_test) {
+            socket_use_fifo = 1
+        }
+        else {
+            socket_use_fifo
+        }
+
+        close(__socket_test_fifo)
+    }
 }
 
 ##
@@ -31,6 +48,12 @@ func socket_init (socket, tempfile, writeonly) {
     }
     
     socket["tempfile"] = tempfile
+
+    if (socket_use_fifo) {
+        # If we're in fifo mode, unlink the file and make it a fifo.
+        system("unlink " tempfile)
+        system("mkfifo " tempfile)
+    }
 
     if (!writeonly) {
         # Allocate tempfile and tail by starting it
