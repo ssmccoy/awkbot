@@ -57,7 +57,7 @@ func socket_init (socket, tempfile, writeonly) {
 
     if (!writeonly) {
         # Allocate tempfile and tail by starting it
-        print > tempfile
+        print >> tempfile
         socket["input"] = "tail -f " tempfile
         socket["input"] | getline < writeonly
     }
@@ -68,7 +68,8 @@ func socket_init (socket, tempfile, writeonly) {
 # @param host string hostname or ip
 # @param port integer TCP port number
 func socket_connect (socket,host,port) {
-    socket["output"] = socket_catalyst " " host " " port " > " socket["tempfile"]
+    socket["output"] = socket_catalyst " " host " " port " > " \
+        socket["tempfile"] " 2>&1"
     print "DEBUG: using " socket["output"]
     
     # Send zero bytes - just kick it off.

@@ -61,8 +61,24 @@ BEGIN {
 
 END {
     awkbot_db_status_connected(0)
+    awkbot_db_status_running(0)
 }
 
+function reconnect () {
+    # Close the socket before reconnecting, this ensures a new process will
+    # be created...otherwise she'll just idle...
+    irc_sockclose()
+    awkbot_db_status_running(1)
+    awkbot_db_status_connected(0)
+    irc_connect(config("irc.server"))
+}
+
+# When the connection gets closed, restart the conversation...
+#/^Terminated/ || /^Connection closed/ {
+#    reconnect()
+#}
+
+# TODO [20091211 18:14] Is this still necessary?
 # Nasty hack to clean up every few records
 NR % 10000 == 0 {
     print "DEBUG: Truncating file.."
@@ -79,8 +95,9 @@ $1 == "say" {
     irc_privmsg($2, _msg)
 }
 
+
 function irc_handler_error () {
-    irc_connect(config("irc.server"))
+    reconnect()
 }
 
 function irc_handler_connect (  channel,key,msg) { 

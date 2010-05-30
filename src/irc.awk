@@ -138,11 +138,7 @@ function irc_sockwrite (data) {
 
 # Just wraps socket_close
 function irc_sockclose () {
-    if (irc_socket) {
-        socket_close(irc_socket)
-    }
-
-    else irc_error("irc_sockclose called with no open socket")
+    socket_close(irc_socket)
 }
 
 # -----------------------------------------------------------------------------
