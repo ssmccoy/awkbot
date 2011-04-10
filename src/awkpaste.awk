@@ -13,10 +13,11 @@ BEGIN {
 
     if (query["id"]) {
         if (awkbot_db_paste_get(query["id"], paste)) {
-            id      = query["id"]
-            nick    = paste["nick"]
-            subject = paste["subject"]
-            content = paste["content"]
+            id       = query["id"]
+            nick     = paste["nick"]
+            subject  = paste["subject"]
+            language = paste["language"]
+            content  = paste["content"]
             link    = sprintf("%s?id=%d", config("paste.cgi"), id)
 
 # This should be dealt with in mysql.awk

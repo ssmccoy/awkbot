@@ -133,8 +133,8 @@ function awkbot_db_paste_add (nick, description, content) {
 }
 
 function awkbot_db_paste_get (id,row    ,rv,result) {
-    rv = mysql_query("SELECT paste_id, nick, subject, content FROM paste " \
-            "WHERE paste_id = " mysql_quote(id))
+    rv = mysql_query("SELECT paste_id, nick, subject, language, content " \
+       "FROM paste WHERE paste_id = " mysql_quote(id))
 
     result = mysql_fetch_assoc(rv, row)
     mysql_finish(rv)

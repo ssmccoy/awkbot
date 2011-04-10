@@ -45,6 +45,13 @@ INSERT INTO `qna` VALUES ('mysql_quote','something tag really needs to add to my
 INSERT INTO `qna` VALUES ('xmb','the guy with incompatible libraries');
 INSERT INTO `qna` VALUES ('mysql.awk','http://www.blisted.org/svn/modules/mysql.awk/ until tag writes documentation');
 
+CREATE TABLE `paste` (
+    paste_id int(11),
+    nick     varchar(20) not null,
+    subject  varchar(80) not null,
+    language varchar(15) not null default 'awk',
+    content  text
+) TYPE=MyISAM;
 
 CREATE TABLE `status` (
     `running` boolean not null default false,

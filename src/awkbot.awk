@@ -74,9 +74,19 @@ function reconnect () {
 }
 
 # When the connection gets closed, restart the conversation...
-#/^Terminated/ || /^Connection closed/ {
-#    reconnect()
-#}
+/^Terminated/ || /^Connection closed/ {
+    reconnect()
+}
+
+$1 == "quit" {
+    _msg = $2
+
+    for (i = 3; i <= NF; i++) {
+        _msg = _msg " " $i
+    }
+
+    irc_quit(_msg)
+}
 
 # TODO [20091211 18:14] Is this still necessary?
 # Nasty hack to clean up every few records
@@ -86,7 +96,8 @@ NR % 10000 == 0 {
     fflush(irc["tempfile"])
     close(irc["tempfile"])
 }
-$1 == "say" { 
+
+$1 == "say" {
     _msg = $3
     for (i = 4; i <= NF; i++) {
         _msg = _msg " " $i

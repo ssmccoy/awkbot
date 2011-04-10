@@ -22,8 +22,8 @@ function config_parse (config_data,level,filename    ,l,t,s,current,closing) {
         sub(/^[\t ]*#.*$/, "")
 
         if (config_data["debug"]) {
-            printf "read:%s:%d %s\n", filename, NR, $0
-            print "Current namespace", level
+            printf "read:%s:%d %s\n", filename, NR, $0 > "/dev/stderr"
+            print "Current namespace", level > "/dev/stderr"
         }
 
         if (/<[^\/][^>]*>/) {
@@ -32,7 +32,7 @@ function config_parse (config_data,level,filename    ,l,t,s,current,closing) {
 
             s = substr($0, RSTART + 1, RLENGTH - 2)
 
-            if (config_data["debug"]) print "Opening: ", s
+            if (config_data["debug"]) print "Opening: ", s > "/dev/stderr"
             if (level) config_parse(config_data, level SUBSEP s, filename)
             else       config_parse(config_data, s,              filename)
         }
@@ -46,7 +46,9 @@ function config_parse (config_data,level,filename    ,l,t,s,current,closing) {
             t = split(s, l, SUBSEP)
             current = l[t]
 
-            if (config_data["debug"]) print "Open", current, "close", closing
+            if (config_data["debug"])
+                print "Open", current, "close", closing > "/dev/stderr"
+
             assert((current == closing), "Inconsistent open/close tags")
             return
         }
@@ -56,7 +58,9 @@ function config_parse (config_data,level,filename    ,l,t,s,current,closing) {
                 # Using split rather than 3 argument match, for mawk.
                 split($0, l, /[ ][ ]*/)
 
-                if (config_data["debug"]) print level SUBSEP l[1], "=", l[2]
+                if (config_data["debug"]) 
+                    print level SUBSEP l[1], "=", l[2] > "/dev/stderr"
+
                 if (level) config_data[level, l[1]] = l[2]
                 else       config_data[l[1]]        = l[2]
             }
@@ -72,7 +76,10 @@ function config (item, value    ,element) {
     gsub(/\./, SUBSEP, element)
     
     if (value) _config[element] = value
-    if (_config["debug"]) print "config():", item, "(" element ")", value
+
+    if (_config["debug"]) 
+        print "config():", item, "(" element ")", value > "/dev/stderr"
+
 # We should just treat undefined stuff as undefined *shrug*    
 #    assert(_config[element], "config(): " element " is of no value")
     return _config[element]

@@ -13,8 +13,6 @@ then echo "Generated script ($bootstrap) exited prematurely, please inspect"
      exit 1
 fi
 
-echo "using $livedata"
-
 # Done with this one
 rm $bootstrap
 

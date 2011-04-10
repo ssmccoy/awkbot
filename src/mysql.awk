@@ -35,8 +35,9 @@ function mysql_tempfile_command (command) {
 function mysql_login (username, password, host, args) {
     mysql["user"] = "-u" username
     mysql["pass"] = "-p" password
-	if (host) mysql["host"] = "-h" host
-	if (args) mysql["args"] = args
+
+    if (host) mysql["host"] = "-h" host
+    if (args) mysql["args"] = args
 }
 
 function mysql_query (query    ,input,key,i,call,resource) {
