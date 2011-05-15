@@ -19,11 +19,6 @@ BEGIN {
             language = paste["language"]
             content  = paste["content"]
             link    = sprintf("%s?id=%d", config("paste.cgi"), id)
-
-# This should be dealt with in mysql.awk
-#           gsub(/\\r\\n|\\n/, "\n", content) # CRLF to LF
-#           gsub(/\\t/,   "\t", context) # Outcoming tabs.
-#           gsub(/\\\\/,  "\\", content) # Outcoming escapes
         }
         else {
             print "Location: /404.html" 
@@ -34,9 +29,10 @@ BEGIN {
     else {
         stream  = awkbot_db_status_livefeed()
     
-        nick    = query["name"]
-        subject = query["description"]
-        content = query["content"]
+        nick     = query["name"]
+        subject  = query["description"]
+        content  = query["content"]
+        language = query["language"]
 
         errmsg  = ""
 
@@ -64,7 +60,7 @@ BEGIN {
             exit 1
         }
     
-        awkbot_db_paste_add(nick, subject, content)
+        awkbot_db_paste_add(nick, subject, language, content)
         # This has synchronization issues...but what the hell, this is awk
         id      = awkbot_db_paste_last()
         link    = sprintf("%s?id=%d", config("paste.cgi"), id)
@@ -75,6 +71,10 @@ BEGIN {
                     link) >> stream
     
             close(stream)
+
+            print "Location:", link
+            print ORS
+            exit 1
         }
     }
 
@@ -102,7 +102,7 @@ BEGIN {
         while (getline content < template) {
 #else
 #ifdef GAWK
-        hilight = "highlight -I -l -k monospace -S awk"
+        hilight = "highlight -I -l -k monospace -S " language
 
         print content |& hilight
         close(hilight, "to")

@@ -45,15 +45,16 @@ BEGIN {
 func socket_init (socket, tempfile, writeonly) {
     if (!tempfile) {
         tempfile = tempfile("tcp_socket")
+
+        if (socket_use_fifo) {
+            # If we're in fifo mode, unlink the file and make it a fifo.
+            system("unlink " tempfile)
+            system("mkfifo " tempfile)
+        }
+
     }
     
     socket["tempfile"] = tempfile
-
-    if (socket_use_fifo) {
-        # If we're in fifo mode, unlink the file and make it a fifo.
-        system("unlink " tempfile)
-        system("mkfifo " tempfile)
-    }
 
     if (!writeonly) {
         # Allocate tempfile and tail by starting it
@@ -69,8 +70,7 @@ func socket_init (socket, tempfile, writeonly) {
 # @param port integer TCP port number
 func socket_connect (socket,host,port) {
     socket["output"] = socket_catalyst " " host " " port " > " \
-        socket["tempfile"] " 2>&1"
-    print "DEBUG: using " socket["output"]
+        socket["tempfile"]
     
     # Send zero bytes - just kick it off.
     socket_write(socket)

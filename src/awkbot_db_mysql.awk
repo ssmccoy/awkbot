@@ -75,7 +75,7 @@ function awkbot_db_forget (question) {
 
 function awkbot_db_status_running (running) {
     mysql_finish(mysql_query("UPDATE status SET running = " \
-        running ? 1 : 0))
+        (running ? 1 : 0)))
 
     if (! running) {
         mysql_finish(mysql_query("UPDATE status SET livefeed = NULL"))
@@ -89,7 +89,7 @@ function awkbot_db_status_running (running) {
 
 function awkbot_db_status_connected (connected) {
     mysql_finish(mysql_query("UPDATE status SET connected = " \
-        connected ? 1 : 0))
+        (connected ? 1 : 0)))
 }
 
 function awkbot_db_status_livefeed (filename    ,rv,row) {
@@ -125,10 +125,11 @@ function awkbot_db_info (keyword    ,result,rv,row) {
     return result
 }
 
-function awkbot_db_paste_add (nick, description, content) {
-    mysql_finish(mysql_query("INSERT INTO paste (nick, subject, content) " \
-            " VALUES (" mysql_quote(nick) "," \
+function awkbot_db_paste_add (nick, description, language, content) {
+    mysql_finish(mysql_query("INSERT INTO paste (nick, subject, language, "\
+                "content) VALUES (" mysql_quote(nick) "," \
                         mysql_quote(description) "," \
+                        mysql_quote(language) "," \
                         mysql_quote(content) ")"))
 }
 

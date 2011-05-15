@@ -13,12 +13,12 @@ function config_load (filename) {
 }
 
 # Recurse over new levels
-function config_parse (config_data,level,filename    ,l,t,s,current,closing) {
-    if (config_data["debug"]) 
+function config_parse (config_data,level,filename ,l,t,s,current,closing) {
+    if (config_data["debug"])
         printf "config_parse(ARRAY, %s, %s)\n", level, filename
 
     while ( getline < filename ) {
-        # Strip coments
+
         sub(/^[\t ]*#.*$/, "")
 
         if (config_data["debug"]) {
@@ -27,14 +27,13 @@ function config_parse (config_data,level,filename    ,l,t,s,current,closing) {
         }
 
         if (/<[^\/][^>]*>/) {
-            # 3 arg match equil
-            # match($0, /<([^\/][^>]*)>/, l)
+            match($0, /<[^\/][^>]*>/)
 
             s = substr($0, RSTART + 1, RLENGTH - 2)
 
             if (config_data["debug"]) print "Opening: ", s > "/dev/stderr"
             if (level) config_parse(config_data, level SUBSEP s, filename)
-            else       config_parse(config_data, s,              filename)
+            else config_parse(config_data, s, filename)
         }
         else if (/<[\/][^>]*>/) {
             match($0, /<[\/]([^>]*)>/)
@@ -43,7 +42,7 @@ function config_parse (config_data,level,filename    ,l,t,s,current,closing) {
 
             t = split(s, l, SUBSEP)
             closing = l[t]
-            t = split(s, l, SUBSEP)
+            t = split(level, l, SUBSEP)
             current = l[t]
 
             if (config_data["debug"])
@@ -52,17 +51,27 @@ function config_parse (config_data,level,filename    ,l,t,s,current,closing) {
             assert((current == closing), "Inconsistent open/close tags")
             return
         }
-        else {
+        else if (match($0, /([^ ][^ ]*)[ ][ ]*([^ ].*)/)) {
 
-            if (match($0, /([^ ][^ ]*)[ ]*(..*)/)) {
-                # Using split rather than 3 argument match, for mawk.
-                split($0, l, /[ ][ ]*/)
+            split(substr($0, RSTART), l, /[ ][ ]*/)
 
-                if (config_data["debug"]) 
-                    print level SUBSEP l[1], "=", l[2] > "/dev/stderr"
+            l[2] = substr($0, RSTART + length(l[1]))
 
-                if (level) config_data[level, l[1]] = l[2]
-                else       config_data[l[1]]        = l[2]
+            sub(/^[ ][ ]*/, "", l[2])
+
+            if (level) {
+                if (config_data["debug"]) {
+                    print level "." l[1], "=", l[2] > "/dev/stderr"
+                }
+
+                config_data[level, l[1]] = l[2]
+            }
+            else {
+                if (config_data["debug"]) {
+                    print l[1], "=", l[2] > "/dev/stderr"
+                }
+
+                config_data[l[1]] = l[2]
             }
         }
     }

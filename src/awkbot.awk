@@ -90,19 +90,21 @@ $1 == "quit" {
 
 # TODO [20091211 18:14] Is this still necessary?
 # Nasty hack to clean up every few records
-NR % 10000 == 0 {
-    print "DEBUG: Truncating file.."
-    printf "" > irc["tempfile"] 
-    fflush(irc["tempfile"])
-    close(irc["tempfile"])
-}
+# I think this shit now that I'm using a fifo
+#NR % 10000 == 0 {
+#    print "DEBUG: Truncating file.."
+#    printf "" > irc["tempfile"] 
+#    fflush(irc["tempfile"])
+#    close(irc["tempfile"])
+#}
 
 $1 == "say" {
     _msg = $3
+
     for (i = 4; i <= NF; i++) {
         _msg = _msg " " $i
     }
-    print "Saying " _msg " to " $2
+
     irc_privmsg($2, _msg)
 }
 
@@ -148,14 +150,16 @@ func calc (expr ,result,bc) {
 }
 
 function irc_handler_privmsg (nick, host, recipient, message, arg  \
-    ,direct,target,address,action,c_msg,argc,t,q,a,s) {
+    ,direct,target,address,action,c_msg,argc,t,q,a,s)
+{
 
     if (recipient ~ /^#/) target = recipient
     else                  target = nick
 
     # A special case...
     if (substr(arg[1], 0, length(irc["nickname"])) == irc["nickname"] &&
-            arg[1] !~ irc["nickname"] "\\+\\+") {
+            arg[1] !~ irc["nickname"] "\\+\\+")
+    {
         direct  = 1
         shift(arg)
 

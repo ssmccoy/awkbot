@@ -7,8 +7,7 @@ cd ..
 awkpaste=`tempfile`
 cpp -I /usr/share/awk/ -I src src/awkpaste.awk 2> /dev/null > $awkpaste
 
-# Give our continuous input through a pipe to tail.  tail -f never exits.
-# Note, that this means awkbot never exits unless killed from the outside.
+# Now that it's assembled, run it
 awk -f $awkpaste
 
 # Clean up our mess
