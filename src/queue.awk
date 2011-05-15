@@ -25,12 +25,13 @@ function pop (array     ,value,i) {
     return value
 }
 
-function shift (array   ,value,i) {
+function shift (array   ,len,value,i) {
     if (! array[1]) return
 
     value = array[1]
 
-    for (i = 2; array[i]; i++)
+    # This is a funky and slow loop...
+    for (i = 2; len ? i < len : array[i]; i++)
         array[i - 1] = array[i]
 
     delete array[i - 1]

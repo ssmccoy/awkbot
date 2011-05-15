@@ -34,7 +34,7 @@ function irc_parse_connect () {
 }
 
 # :tag!~tag@c-67-183-29-168.client.comcast.net PRIVMSG #awk :OK
-function irc_parse_privmsg (    arg,i,t) {
+function irc_parse_privmsg (    argc,arg,i,t,s,nick,host,recipient,msg) {
     if ($0 ~ /\x01.*\x01\r/) {
         if (irc["register", "ctcp"]) {
             # This is the real biatch!
@@ -61,9 +61,23 @@ function irc_parse_privmsg (    arg,i,t) {
     }
     else {
         if (irc["register", "privmsg"]) {
-            split($0, t, /(:|!|\r| PRIVMSG )/)
-            split(t[5], arg)
-            irc_handler_privmsg(t[2], t[3], t[4], t[5], arg)
+            i = index($0, "!")
+
+            nick = substr($0, 2, i - 2)
+
+            t = index($0, " ")
+
+            host = substr($0, i + 1, t - i - 1)
+
+            # Chomp all the parsed bits off the string
+            s = substr($0, t + 9)
+
+            recipient = substr(s, 1, index(s, " ") - 1)
+
+            msg = substr(s, index(s, ":") + 1)
+
+            argc = split(msg, arg)
+            irc_handler_privmsg(nick, host, recipient, msg, argc, arg)
         }
     }
 }

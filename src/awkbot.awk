@@ -88,16 +88,6 @@ $1 == "quit" {
     irc_quit(_msg)
 }
 
-# TODO [20091211 18:14] Is this still necessary?
-# Nasty hack to clean up every few records
-# I think this shit now that I'm using a fifo
-#NR % 10000 == 0 {
-#    print "DEBUG: Truncating file.."
-#    printf "" > irc["tempfile"] 
-#    fflush(irc["tempfile"])
-#    close(irc["tempfile"])
-#}
-
 $1 == "say" {
     _msg = $3
 
@@ -149,64 +139,82 @@ func calc (expr ,result,bc) {
     return result + 0
 }
 
-function irc_handler_privmsg (nick, host, recipient, message, arg  \
-    ,direct,target,address,action,c_msg,argc,t,q,a,s)
+function irc_handler_privmsg (nick, host, recipient, message, argc, arg  \
+    ,direct,target,address,action,c_msg,t,q,a,s)
 {
-
     if (recipient ~ /^#/) target = recipient
     else                  target = nick
+
+    print "irc_handler_privmsg(", nick "," host "," recipient "," \
+        message "," argc ")" >> "debug.log"
 
     # A special case...
     if (substr(arg[1], 0, length(irc["nickname"])) == irc["nickname"] &&
             arg[1] !~ irc["nickname"] "\\+\\+")
     {
+        print "irc_handler_privmsg", "direct channel message" >> "debug.log"
+
         direct  = 1
-        shift(arg)
+        # Join the second word until the end as the cleaned message.
+        c_msg   = join(arg, 2, argc + 1, OFS)
 
-        # Unfortunately, the API doesn't tell me how many arguments are
-        # available...but I need the number of arguments to join.  I might want
-        # to fix # this some day.
-        argc = 0
-        for (key in arg) argc++ 
-
-        c_msg   = join(arg, 1, argc + 1, OFS)
+        # Remove the first item from the list of args...
+        shift(arg, argc--)
     }
     else {
+        print "irc_handler_privmsg", "private message" >> "debug.log"
+
         direct  = (target != recipient)
         # It's either privmsg, or they're not talking to us, so the clean
         # message is the whole message.
         c_msg   = message
     }
 
+    # The "clean" message
+    print "irc_handler_privmsg", "cleaned message:", c_msg >> "debug.log"
+
     if (target == recipient) address = nick ": "
     else address = ""
 
     if (direct) {
-        if (arg[1] == "karma") awkbot_karma_get(target,arg[2])
+        print "The message was directed as me" >> "debug.log"
+
+        if (arg[1] == "karma") {
+            print "irc_handler_privmsg", "command", "karma" >> "debug.log"
+            awkbot_karma_get(target,arg[2])
+        }
         else if (arg[1] == "forget") {
+            print "irc_handler_privmsg", "command", "forget" >> "debug.log"
             awkbot_db_forget(join(arg,2,sizeof(arg),SUBSEP))
             irc_privmsg(target, address "what's a "join(arg,2,sizeof(arg))"?")
         }
         else if (arg[2] == "is") {
+            print "irc_handler_privmsg", "command", "remember" >> "debug.log"
             awkbot_db_answer(arg[1], join(arg, 3, sizeof(arg), " "))
             irc_privmsg(target, address "Okay")
         }
         # It's only numbers and stuff
-        else if (c_msg ~ /^[0-9^.*+\/() -]*$/) {
+        else if (c_msg ~ /^[0-9^.*+\/() -][0-9^.*+\/() -]*$/) {
+            print "irc_handler_privmsg", "command", "calc" >> "debug.log"
             irc_privmsg(target, address calc(c_msg)) 
         }
         else if (arg[1] == "uptime") {
+            print "irc_handler_privmsg", "command", "uptime" >> "debug.log"
             a = awkbot_db_uptime();
             irc_privmsg(target, address a)
         }
         else {
+            print "irc_handler_privmsg", "command", "QnA" >> "debug.log"
+
             # Portable equivilent
             q = join(arg, 1, sizeof(arg), SUBSEP)
             gsub(/\?$/, "", t)
 
             # q = gensub(/\?$/, "", "g", join(arg, 1, sizeof(arg), SUBSEP))
-            if (a = awkbot_db_question(tolower(q))) 
+            if (a = awkbot_db_question(tolower(q))) {
+                print "answer to question was", a >> "debug.log"
                 irc_privmsg(target, address a)
+            }
         }
     }
 
