@@ -2,38 +2,41 @@
 # awkpp is becoming a maintenance nightmare, and I'm able to ditch it by using
 # cpp and it's highly deprecated "import" statement instead.
 
+while true
+do
 # Run the bootstrap, this doesn't do jack but allocate a file.
-bootstrap=`tempfile`
-cpp -I /usr/share/awk -I src src/awkbot-boot.awk 2> /dev/null > $bootstrap
-livedata=`awk -f $bootstrap /dev/null`
-status=$?
+    bootstrap=`tempfile`
+    cpp -I /usr/share/awk -I src src/awkbot-boot.awk 2> /dev/null > $bootstrap
+    livedata=`awk -f $bootstrap /dev/null`
+    status=$?
 
-if [ $status -ne 0 ]
-then echo "Bootstrap script ($bootstrap) exited prematurely, please inspect"
-     exit 1
-fi
+    if [ $status -ne 0 ]
+    then echo "Bootstrap script ($bootstrap) exited prematurely, please inspect"
+         exit 1
+    fi
 
 # Done with this one
-rm $bootstrap
+    rm $bootstrap
 
-awkbot=`tempfile`
-cpp -I /usr/share/awk/ -I src src/awkbot.awk 2> /dev/null > $awkbot
+    awkbot=`tempfile`
+    cpp -I /usr/share/awk/ -I src src/awkbot.awk 2> /dev/null > $awkbot
 
 # Give our continuous input through a pipe to tail.  tail -f never exits.
 # Note, that this means awkbot never exits unless killed from the outside.
-rm $livedata
-mkfifo $livedata
-chmod 666 $livedata
+    rm $livedata
+    mkfifo $livedata
+    chmod 666 $livedata
 
-cat $livedata | awk -f $awkbot
+    cat $livedata | awk -f $awkbot
 
-status=$?
+    status=$?
 
-if [ $status -ne 0 ]
-then echo "Generated script ($awkbot) exited prematurely, please inspect"
-     exit 1
-fi
+    if [ $status -ne 0 ]
+    then echo "Generated script ($awkbot) exited prematurely, please inspect"
+         exit 1
+    fi
 
 # Clean up our mess
-rm $awkbot
-rm $livedata
+    rm $awkbot
+    rm $livedata
+done
