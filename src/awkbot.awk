@@ -159,7 +159,7 @@ function irc_handler_privmsg (nick, host, recipient, message, argc, arg  \
         c_msg   = join(arg, 2, argc + 1, OFS)
 
         # Remove the first item from the list of args...
-        shift(arg, argc--)
+        shift(arg)
     }
     else {
 #        print "irc_handler_privmsg", "private message" >> "debug.log"
