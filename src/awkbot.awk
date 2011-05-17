@@ -223,7 +223,7 @@ function irc_handler_privmsg (nick, host, recipient, message, argc, arg  \
     }
 
     if (match(arg[1], /^(.*)\+\+$/)) {
-        s = substr(arg[1], length(arg[1]) - 1)
+        s = substr(arg[1], 1, length(arg[1]) - 2)
 
         if (s == nick) {
             irc_privmsg(target, address "changing your own karma is bad karma")
@@ -234,7 +234,7 @@ function irc_handler_privmsg (nick, host, recipient, message, argc, arg  \
         }
     }
     if (match(arg[1], /^(.*)--$/)) {
-        s = substr(arg[1], length(arg[1]) - 1)
+        s = substr(arg[1], 1, length(arg[1]) - 2)
 
         if (s == nick) {
             irc_privmsg(target, address "don't be dumb")
