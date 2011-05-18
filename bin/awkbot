@@ -4,7 +4,7 @@
 
 while true
 do
-# Run the bootstrap, this doesn't do jack but allocate a file.
+    # Run the bootstrap, this doesn't do jack but allocate a file.
     bootstrap=`tempfile`
     cpp -I /usr/share/awk -I src src/awkbot-boot.awk 2> /dev/null > $bootstrap
     livedata=`awk -f $bootstrap /dev/null`
@@ -15,19 +15,19 @@ do
          exit 1
     fi
 
-# Done with this one
+    # Done with this one
     rm $bootstrap
 
     awkbot=`tempfile`
     cpp -I /usr/share/awk/ -I src src/awkbot.awk 2> /dev/null > $awkbot
 
-# Give our continuous input through a pipe to tail.  tail -f never exits.
-# Note, that this means awkbot never exits unless killed from the outside.
+    # Give our continuous input through a pipe to tail.  tail -f never exits.
+    # Note, that this means awkbot never exits unless killed from the outside.
     rm $livedata
     mkfifo $livedata
     chmod 666 $livedata
 
-    cat $livedata | awk -f $awkbot
+    awk -f $awkbot $livedata
 
     status=$?
 
