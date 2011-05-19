@@ -140,6 +140,13 @@ function kernel_start (	    fifo,tempfile) {
     ARGV[ARGC++] = fifo
 }
 
+function kernel_shutdown (component) {
+    kernel_send(component, "fini")
+
+    close(kernel["process", component])
+    delete kernel["process", component]
+}
+
 function kernel_exit () {
     # TODO This should be nicer, and it should use a nice little data
     # structure...
@@ -178,7 +185,7 @@ function kernel_init (  i,m,module) {
 	kernel_register($3,$4,$5,$6)
     }
     else if ("shutdown" == $2) {
-	kernel_shutdown()
+	kernel_shutdown($3)
     }
     else if ("exit" == $2) {
 	kernel_exit()

@@ -28,7 +28,7 @@ function kernel_shutdown () {
 }
 
 function kernel_publish (event, a1,a2,a3,a4,a5,a6,a7,a8,a9) {
-    kernel_send("kernel", "publish", event, a1,a2,a3,a4,a5,a6,a7,a8,a9)
+    kernel_send("kernel", "publish", this, event, a1,a2,a3,a4,a5,a6,a7,a8,a9)
 }
 
 BEGIN {
