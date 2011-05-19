@@ -34,36 +34,110 @@ function mkfifo (   tempfile) {
 }
 
 function kernel_message (module, message, a1,a2,a3,a4,a5,a6,a7,a8,a9) {
+    printf "[%s %s]\n", module, message >> "/dev/stderr"
+
     print message,a1,a2,a3,a4,a5,a6,a7,a8,a9 | kernel["process", module]
+
+    # TODO Enable a buffering option...long running programs should be able to
+    # be buffered under many circumstances.
+    fflush(kernel["process", module])
 }
 
 # For now we use awkpath..
-function kernel_load (source, name) {
+function kernel_load (source, name  ,modules,input,words) {
     if ("" == name) {
-	name = kernel["objects"]++
+        name = kernel["objects"]++
     }
 
-    printf "loading: %s\n", name >> "/dev/stderr"
+    while ((getline input < source) > 0) {
+        if (input ~ /#use/) {
+            split(input, words, /[\t ][\t ]*/)
+            modules = modules " -f " words[2]
+        }
+    }
 
     kernel["process", name] = \
-	  sprintf("exec %s -f module.awk -f %s %s", awk, source, name)
+	  sprintf("exec %s -f module.awk %s -f %s %s", \
+                  awk, modules, source, name)
 
     kernel_message(name, "init", FILENAME)
 }
 
-function kernel_start (	    fifo) {
-    print "kernel_start()" >> "/dev/stderr"
+## Register a listener to an event.
+function kernel_listen (source, event, component, handler   ,i) {
+    i = kernel["listeners", source, event]
+
+    kernel["listeners", source, event, i, "component"] = component
+    kernel["listeners", source, event, i, "handler"]   = component
+}
+
+## Find the given event listener and remove it.
+function kernel_clear (source, event, component, handler     ,i,found) {
+    found = 0
+
+    for (i = kernel["listeners", source, event]; 
+         i <= kernel["listeners", source, event];
+         i++)
+    {
+        # If we've found the item we're removing, shift each subsequent element
+        # "back" in the list by one element.
+
+        if (found) {
+            kernel["listeners", source, event, i - 1, "component"] = \
+                  kernel["listeners", source, event, i, "component"]
+
+            kernel["listeners", source, event, i - 1, "handler"] = \
+                  kernel["listeners", source, event, i, "handler"]
+        }
+
+        if (kernel["listeners", source, event, i, "component"] == component &&
+            kernel["listeners", source, event, i, "handler"] == handler)
+        {
+            delete kernel["listeners", source, event, i, "component"]
+            delete kernel["listeners", source, event, i, "handler"]
+
+            found = 1
+        }
+    }
+}
+
+function kernel_publish (source, event, a1,a2,a3,a4,a5,a6,a7,a8,a9  ,i,c,h) {
+    for (i = kernel["listeners", source, event]; 
+         i <= kernel["listeners", source, event];
+         i++)
+    {
+        c = kernel["listeners", source, event, i, "component"]
+        h = kernel["listeners", source, event, i, "handler"]
+
+        kernel_message(c, h, a1,a2,a3,a4,a5,a6,a7,a8,a9)
+    }
+}
+
+
+function kernel_start (	    fifo,tempfile) {
     fifo = mkfifo()
 
     print fifo
     fflush()
 
-    ARGV[ARGC++] = fifo
-}
+    # Push our own first message so we can start up
+    # The "cat" process and pipe create a buffer to prevent deadlock.
 
-function kernel_shutdown (name) {
-    close( kernel["process", name])
-    delete kernel["process", name]
+    tempfile = mktemp()
+    kernel["tempfile"] = tempfile
+
+    print "kernel", "init" > tempfile
+    close(tempfile)
+
+    # Background job to send the initialization event
+    system(sprintf("cat %s > %s && rm %s &", \
+           tempfile, fifo, tempfile))
+
+    # We need to move out two files, cat will send an EOF.
+    # Other processes and the like may as well...make sure we keep the stream
+    # open...
+    ARGV[ARGC++] = fifo
+    ARGV[ARGC++] = fifo
 }
 
 function kernel_exit () {
@@ -71,17 +145,37 @@ function kernel_exit () {
     # structure...
     for (key in kernel) {
 	if (substr(key, 0, 7) == "process") {
+	    close(kernel[key])
 	}
+    }
+
+    remove(ARGV[ARGC-1])
+
+    exit 0
+}
+
+function kernel_init (  i,m,module) {
+    m = kernel["modules"]
+
+    for (i = 1; i <= m; i++) {
+        module = kernel["modules", i]
+        kernel_load(module, module)
     }
 }
 
 # When a kernel event happens, prioritize it by not going into the main loop.
 "kernel" == $1 {
-    if ("load" == $2) {
+    if ("publish" == $2) {
+        kernel_publish($3, $4, $5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+    }
+    else if ("load" == $2) {
 	kernel_load($3,$4)
     }
-    else if ("register" == $2) {
-	kernel_register($3)
+    else if ("listen" == $2) {
+	kernel_register($3,$4,$5,$6)
+    }
+    else if ("clear" == $2) {
+	kernel_register($3,$4,$5,$6)
     }
     else if ("shutdown" == $2) {
 	kernel_shutdown()
@@ -89,12 +183,12 @@ function kernel_exit () {
     else if ("exit" == $2) {
 	kernel_exit()
     }
-
-    next
+    else if ("init" == $2) {
+        kernel_init()
+    }
 }
 
-
-{
+"kernel" != $1 {
     if (kernel["process", $1] != "") {
 	kernel_message($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
     }
@@ -103,13 +197,15 @@ function kernel_exit () {
     }
 }
 
-function kernel_parse_args (	i,modname) {
+function kernel_parse_args (	i,modname,m) {
     for (i = 1; i < ARGC; i++) {
 	modname = ARGV[i]
 
 	# All initilization modules are singletons
-	kernel_load(modname, modname)
+        kernel["modules", ++m] = modname
     }
+
+    kernel["modules"] = m
 
     ARGC = 1
 }
@@ -120,6 +216,10 @@ BEGIN {
     awk = "awk"
     kernel_parse_args()
     kernel_start()
+}
 
-    print "kernel started" >> "/dev/stderr"
+# We got an "EOF" on the stream, so we need to append a next file..
+FNR == 1 {
+    print "kernel:nextfile" >> "/dev/stderr"
+    ARGV[ARGC++] = FILENAME
 }
