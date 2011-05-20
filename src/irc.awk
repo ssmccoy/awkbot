@@ -22,15 +22,18 @@ function irc_fini () {
 
 ## Connect to the IRC server
 function irc_server (host, port, nickname, username, realname) {
+    printf "irc->server(\"%s\",%s,\"%s\",\"%s\",\"%s\")\n", \
+           host, port, nickname, username, realname >> "/dev/stderr"
+
     irc["nickname"] = nickname
     irc["username"] = username
     irc["realname"] = realname
 
     kernel_send(socket, "connect", host, port)
-    kernel_send(socket, "write", "NICK " nickname)
-    kernel_listen(socket, "read", "input")
 
-    irc_sockwrite("USER " username " a a :" realname)
+    kernel_send(socket, "write", "NICK " nickname)
+    kernel_send(socket, "write", "USER " username " a a :" realname)
+    kernel_listen(socket, "read", "input")
 }
 
 ## Join the given channel
@@ -123,11 +126,13 @@ function irc_parse_message (payload, fields     ,b,nick,host,type,message) {
 }
 
 ## Parse a raw IRC protocol message
-function irc_input (payload ,fields) {
+function irc_parse_input (payload ,fields) {
     split(payload, fields, / /)
 
+    printf "irc->input(\"%s\")\n", fields[2] >> "/dev/stderr"
+
     if (fields[1] == "PING") {
-        kernel_send(socket, sprintf("PONG %s", fields[2]))
+        kernel_send(socket, "write", sprintf("PONG %s", fields[2]))
     }
     if (fields[1] == "ERROR") {
         kernel_publish("error", string(payload))
@@ -150,6 +155,6 @@ function irc_input (payload ,fields) {
 "server" == $1 { irc_server($2,$3,$4,$5,$6) }
 "join"   == $1 { irc_join($2)               }
 "msg"    == $1 { irc_msg($1,$2)             }
-"input"  == $1 { irc_input($2)              }
+"input"  == $1 { irc_parse_input($2)        }
 "quit"   == $1 { irc_quit($2)               }
 "fini"   == $1 { irc_fini()                 }

@@ -6,6 +6,10 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
+BEGIN {
+    pathc = split(ENVIRON["AWKPATH"], pathv, /:/)
+}
+
 function qx (command	,c,input,result) {
     c = "exec " command
 
@@ -33,8 +37,51 @@ function mkfifo (   tempfile) {
     return tempfile
 }
 
+function readable (file     ,result,x) {
+    result = getline x < file
+    close(file)
+
+    return result >= 0
+}
+
+function find (filename     ,r,i) {
+    for (i = 1; i <= pathc; i++) {
+        r = pathv[i] "/" filename
+
+        if (readable(r)) {
+            return r
+        }
+    }
+
+    print "error: unable to find file " filename >> "/dev/stderr"
+    exit 1
+}
+
+function dependencies (filename     ,loaded,input,df,depends) {
+    loaded[filename] = 1
+
+    depends = ""
+
+    while ((getline input < filename) > 0) {
+        if (input ~ /^#use/) {
+            split(input, words, /[\t ][\t ]*/)
+            print "loading module " words[2] >> "/dev/stderr"
+            df = find(words[2])
+
+            if (loaded[df] != 1) {
+                depends = depends " -f " df
+                depends = depends dependencies(df, loaded)
+            }
+        }
+    }
+
+    return depends
+}
+
 function kernel_message (module, message, a1,a2,a3,a4,a5,a6,a7,a8,a9) {
-    printf "[%s %s]\n", module, message >> "/dev/stderr"
+    printf "kernel->message(\"%s\", \"%s\")\n", module, message >> "/dev/stderr"
+#    printf "args: %s,%s,%s,%s,%s,%s,%s,%s,%s\n", \
+#           a1,a2,a3,a4,a5,a6,a7,a8,a9 >> "/dev/stderr"
 
     print message,a1,a2,a3,a4,a5,a6,a7,a8,a9 | kernel["process", module]
 
@@ -44,38 +91,38 @@ function kernel_message (module, message, a1,a2,a3,a4,a5,a6,a7,a8,a9) {
 }
 
 # For now we use awkpath..
-function kernel_load (source, name  ,modules,input,words) {
-    if ("" == name) {
-        name = kernel["objects"]++
+function kernel_load (source, name  ,depends,input,words,filename,loaded) {
+    filename = find(source)
+
+    if ("" == filename) {
+        print "unable to load " name ": " source " not found" >> "/dev/stderr"
+        return
     }
 
-    while ((getline input < source) > 0) {
-        if (input ~ /#use/) {
-            split(input, words, /[\t ][\t ]*/)
-            modules = modules " -f " words[2]
-        }
-    }
+    depends = dependencies(filename, loaded)
 
     kernel["process", name] = \
 	  sprintf("exec %s -f module.awk %s -f %s %s", \
-                  awk, modules, source, name)
+                  awk, depends, source, name)
+
+    print "starting module: " kernel["process", name] >> "/dev/stderr"
 
     kernel_message(name, "init", FILENAME)
 }
 
 ## Register a listener to an event.
 function kernel_listen (source, event, component, handler   ,i) {
-    i = kernel["listeners", source, event]
+    i = ++kernel["listeners", source, event]
 
     kernel["listeners", source, event, i, "component"] = component
-    kernel["listeners", source, event, i, "handler"]   = component
+    kernel["listeners", source, event, i, "handler"]   = handler
 }
 
 ## Find the given event listener and remove it.
 function kernel_clear (source, event, component, handler     ,i,found) {
     found = 0
 
-    for (i = kernel["listeners", source, event]; 
+    for (i = 1;
          i <= kernel["listeners", source, event];
          i++)
     {
@@ -99,10 +146,15 @@ function kernel_clear (source, event, component, handler     ,i,found) {
             found = 1
         }
     }
+
+    kernel["listeners", source, event]--
 }
 
 function kernel_publish (source, event, a1,a2,a3,a4,a5,a6,a7,a8,a9  ,i,c,h) {
-    for (i = kernel["listeners", source, event]; 
+    printf "kernel->publish(\"%s\", \"%s\", \"%s\")\n", \
+           source, event, a1 >> "/dev/stderr"
+
+    for (i = 1;
          i <= kernel["listeners", source, event];
          i++)
     {
@@ -141,10 +193,12 @@ function kernel_start (	    fifo,tempfile) {
 }
 
 function kernel_shutdown (component) {
-    kernel_send(component, "fini")
+    printf "kernel->shutdown(\"%s\")\n", component >> "/dev/stderr"
+    kernel_message(component, "fini")
 
-    close(kernel["process", component])
+#    close(kernel["process", component])
     delete kernel["process", component]
+    print "kernel->cleanup()" >> "/dev/stderr"
 }
 
 function kernel_exit () {
@@ -179,10 +233,10 @@ function kernel_init (  i,m,module) {
 	kernel_load($3,$4)
     }
     else if ("listen" == $2) {
-	kernel_register($3,$4,$5,$6)
+	kernel_listen($3,$4,$5,$6)
     }
     else if ("clear" == $2) {
-	kernel_register($3,$4,$5,$6)
+	kernel_clear($3,$4,$5,$6)
     }
     else if ("shutdown" == $2) {
 	kernel_shutdown($3)

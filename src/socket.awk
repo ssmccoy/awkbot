@@ -16,11 +16,20 @@
 BEGIN {
     tempfile_command = "mktemp socket.XXXXX"
 
-    if (!socket_catalyst) "which nc"     | getline socket_catalyst
-    if (!socket_catalyst) "which telnet" | getline socket_catalyst
+    if (!socket_catalyst) {
+        "which nc"     | getline socket_catalyst
+        close("which nc")
+    }
+
+    if (!socket_catalyst) {
+        "which telnet" | getline socket_catalyst
+        close("which telnet")
+    }
 }
 
 function socket_connect (host, port) {
+    printf "socket->connect(\"%s\", %s)\n", host, port >> "/dev/stderr"
+
     tempfile_command | getline fifo
     close(tempfile_command)
 
@@ -40,6 +49,7 @@ function socket_connect (host, port) {
 }
 
 function socket_read (sockname, input) {
+    print "socket->read()" >> "/dev/stderr"
     # Publish the input event to anyone listening...(?! should I be doing
     # this!?)  Maybe the listener should be a direct connection between the two
     # modules.  This will enter a for-loop in the kernel for each event.
@@ -49,6 +59,7 @@ function socket_read (sockname, input) {
 }
 
 function socket_write (input) {
+    printf "socket->write(\"%s\")\n", input >> "/dev/stderr"
     print input | socket
 }
 
@@ -56,20 +67,25 @@ function socket_write (input) {
 # usually work without intervention, and a "disconnect" event will be received
 # some time later as a result.
 function socket_close () {
+    print "socket->close()" >> "/dev/stderr"
     close(socket)
     socket = ""
 }
 
 # Simply exit
 function socket_disconnect () {
+    print "socket->disconnect()" >> "/dev/stderr"
+    system("rm " fifo)
     kernel_shutdown()
 }
 
-"read"       == $1 { socket_read($2)       }
+"read"       == $1 { socket_read($2,$3)    }
 "write"      == $1 { socket_write($2)      }
 "close"      == $1 { socket_close()        }
-"connect"    == $1 { socket_connect($2,$4) }
+"connect"    == $1 { socket_connect($2,$3) }
 "disconnect" == $1 { socket_disconnect()   }
+
+"irc" == $1 { kernel_exit() }
 
 # Shutdown handler, incase premature shutdown occurs, try not to leave any
 # straggling processes about.

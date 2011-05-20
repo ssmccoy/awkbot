@@ -5,7 +5,8 @@
 # can do whatever you want with this stuff. If we meet some day, and you think 
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy 
 # -----------------------------------------------------------------------------
-# deps: assert.awk
+
+#use assert.awk
 
 function config_load (filename) {
     _config["config", "filename"] = filename

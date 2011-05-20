@@ -6,99 +6,41 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy 
 # -----------------------------------------------------------------------------
 
-#import <assert.awk>
-#import <config.awk>
-#import <awkbot_db_mysql.awk>
-#import <irc.awk>
-#import <awkdoc.awk>
-#import <join.awk>
-#import <queue.awk>
-
-#define TEST 1
-
-#ifdef TEST
-BEGIN {
-    print "Awkbot is starting up..."
-}
-#else
-BEGIN {
-    print "This program needs to be loaded with awkpp"
-    exit
-}
-#endif
+#use assert.awk
+#use config.awk
 
 BEGIN {
-    VERSION = "awkbot $Revision: 412 $"
-
     config_load("etc/awkbot.conf")
 
     assert(config("irc.username"), "username not specified in config")
     assert(config("irc.nickname"), "nickname not specified in config")
     assert(config("irc.altnick"), "altnick not specified in config")
     assert(config("irc.server"), "server not specified in config")
-
-    awkbot_db_init()
-
-    irc_set("debug",    config("irc.debug"))
-
-    irc_set("nickname", config("irc.nickname"))
-    irc_set("username", config("irc.username"))
-    irc_set("realname", config("irc.realname"))
-
-    irc_register("connect")
-    irc_register("privmsg")
-    irc_register("ctcp")
-    irc_register("error")
-
-    awkbot_db_status_running(1)
-
-    print "Using", awkbot_db_status_livefeed(), "as live feed from awkbot"
-
-    # XXX Nasty hack, make this not need direct access to the irc array!
-    irc["tempfile"] = awkbot_db_status_livefeed()
-    irc_connect(config("irc.server"))
+    assert(config("irc.port"), "port not specified in config")
 }
 
-END {
-    awkbot_db_status_connected(0)
-    awkbot_db_status_running(0)
+function awkbot_init (	server,port,nick,user,name) {
+    kernel_load("irc.awk", "irc")
+
+    server = config("irc.server")
+    port   = config("irc.port")
+
+    nick   = config("irc.nickname")
+    user   = config("irc.username")
+    name   = config("irc.realname")
+
+    kernel_listen("irc", "connected", "connected")
+    kernel_send("irc", "server", server, port, nick, user, name)
 }
 
-function reconnect () {
-    # Close the socket before reconnecting, this ensures a new process will
-    # be created...otherwise she'll just idle...
-    irc_sockclose()
-    awkbot_db_status_running(1)
-    awkbot_db_status_connected(0)
-    irc_connect(config("irc.server"))
+function awkbot_connected () {
+    kernel_send("irc", "join", "#awk")
 }
 
-# When the connection gets closed, restart the conversation...
-/^Terminated/ || /^Connection closed/ {
-    reconnect()
-}
+"init" == $1 { awkbot_init() }
+"connected" == $1 { awkbot_connected() }
 
-$1 == "quit" {
-    _msg = $2
-
-    for (i = 3; i <= NF; i++) {
-        _msg = _msg " " $i
-    }
-
-    irc_quit(_msg)
-}
-
-$1 == "say" {
-    _msg = $3
-
-    for (i = 4; i <= NF; i++) {
-        _msg = _msg " " $i
-    }
-
-    irc_privmsg($2, _msg)
-}
-
-
+# TODO: Refactor the following...
 function irc_handler_error () {
     reconnect()
 }

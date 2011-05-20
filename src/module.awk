@@ -6,8 +6,8 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
-function kernel_send (component, operation, a1,a2,a3,a4,a5,a6,a7,a8,a9) {
-    print component, operation, a1,a2,a3,a4,a5,a6,a7,a8,a9 >> _k_pipename
+function kernel_send (component, operation, a1,a2,a3,a4,a5,a6,a7,a8,a9,o,f) {
+    print component, operation, a1,a2,a3,a4,a5,a6,a7,a8,a9,o,f >> _k_pipename
     fflush(_k_pipename)
 }
 
@@ -16,6 +16,10 @@ function kernel_load (source, name) {
 }
 
 function kernel_listen (component, event, handler) {
+    if ("" == handler) {
+        handler = event
+    }
+
     kernel_send("kernel", "listen", component, event, this, handler)
 }
 
