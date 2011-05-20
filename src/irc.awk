@@ -38,17 +38,18 @@ function irc_server (host, port, nickname, username, realname) {
 
 ## Join the given channel
 function irc_join (channel) {
-    kernel_send(socket, sprintf("JOIN %s", channel))
+    printf "irc->join(\"%s\")\n", channel >> "/dev/stderr"
+    kernel_send(socket, "write", sprintf("JOIN %s", channel))
 }
 
 ## Private message the given target
 function irc_msg (target, message) {
-    kernel_send(socket, sprintf("PRIVMSG %s :%s", target, message))
+    kernel_send(socket, "write", sprintf("PRIVMSG %s :%s", target, message))
 }
 
 ## Send a notice
 function irc_notice (target, message) {
-    kernel_send(socket, sprintf("PRIVMSG %s :%s", target, message))
+    kernel_send(socket, "write", sprintf("PRIVMSG %s :%s", target, message))
 }
 
 # -----------------------------------------------------------------------------

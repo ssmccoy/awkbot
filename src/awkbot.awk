@@ -29,7 +29,7 @@ function awkbot_init (	server,port,nick,user,name) {
     user   = config("irc.username")
     name   = config("irc.realname")
 
-    kernel_listen("irc", "connected", "connected")
+    kernel_listen("irc", "connected")
     kernel_send("irc", "server", server, port, nick, user, name)
 }
 
