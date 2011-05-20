@@ -19,7 +19,21 @@ BEGIN {
     assert(config("irc.port"), "port not specified in config")
 }
 
-function awkbot_init (	server,port,nick,user,name) {
+function awkbot_init (	server,port,nick,user,name,logfile,loglevel) {
+    # Set up the logger first, since everything else will try and write to it.
+    kernel_load("logger.awk", "log")
+
+    logfile  = config("logfile")
+    loglevel = config("loglevel")
+
+    if ("" != logfile) {
+        kernel_send("log", "logfile", logfile)
+    }
+
+    if ("" != loglevel) {
+        kernel_send("log", "level", "default", loglevel)
+    }
+
     kernel_load("irc.awk", "irc")
 
     server = config("irc.server")
@@ -30,17 +44,45 @@ function awkbot_init (	server,port,nick,user,name) {
     name   = config("irc.realname")
 
     kernel_listen("irc", "connected")
+    kernel_listen("irc", "privmsg")
+
     kernel_send("irc", "server", server, port, nick, user, name)
+
+    awkbot = nick
 }
 
 function awkbot_connected () {
     kernel_send("irc", "join", "#awk")
 }
 
-"init" == $1 { awkbot_init() }
-"connected" == $1 { awkbot_connected() }
+function awkbot_privmsg (recipient, nick, host, message     ,m,address,action) {
+    m = match(message, /:| /)
+    address = substr(message, 1, m - 1)
 
-# TODO: Refactor the following...
+    if (address != awkbot) {
+        kernel_send("log", "debug", this, "message addressed to %s, not %s", \
+                    address, awkbot)
+        return
+    }
+
+    if (recipient == awkbot) {
+        kernel_send("irc", "msg", nick, substr(message, m + 2))
+    }
+    else {
+        kernel_send("irc", "msg", recipient, substr(message, m + 2))
+    }
+}
+
+# -----------------------------------------------------------------------------
+# The dispatch table
+
+"init"      == $1 { awkbot_init()               }
+"connected" == $1 { awkbot_connected()          }
+"privmsg"   == $1 { awkbot_privmsg($1,$2,$3,$4) }
+
+# -----------------------------------------------------------------------------
+# XXX The following is for reference only.  It is antiquated and will need to
+# be removed.
 function irc_handler_error () {
     reconnect()
 }

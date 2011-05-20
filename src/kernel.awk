@@ -196,17 +196,20 @@ function kernel_shutdown (component) {
     printf "kernel->shutdown(\"%s\")\n", component >> "/dev/stderr"
     kernel_message(component, "fini")
 
-#    close(kernel["process", component])
+    close(kernel["process", component])
     delete kernel["process", component]
     print "kernel->cleanup()" >> "/dev/stderr"
 }
 
-function kernel_exit () {
+function kernel_exit (  key,kp) {
     # TODO This should be nicer, and it should use a nice little data
     # structure...
     for (key in kernel) {
-	if (substr(key, 0, 7) == "process") {
-	    close(kernel[key])
+
+        split(key, kp, SUBSEP)
+
+        if (kp[1] == "process") {
+            kernel_shutdown(kp[2])
 	}
     }
 

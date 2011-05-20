@@ -6,11 +6,6 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
-# I found I needed to use netcat for sockets even in gawk, so I would be able
-# to have non-blocking input from the outside world by way of a tempfile.  So I
-# realized I could actually have tcp sockets in all awks using the same method
-# and decided to abstract it to a seperate library.
-
 # Determine whether netcat or telnet are appropriate.  Favor netcat, and do
 # nothing if the user specified one instead.
 BEGIN {
@@ -27,8 +22,11 @@ BEGIN {
     }
 }
 
+## Connect a TCP socket.
+# host: The hostname to connect to.
+# port: The port to connect to.
 function socket_connect (host, port) {
-    printf "socket->connect(\"%s\", %s)\n", host, port >> "/dev/stderr"
+    kernel_send("log", "debug", this, "socket->connect(\"%s\", %s)", host, port)
 
     tempfile_command | getline fifo
     close(tempfile_command)
@@ -48,8 +46,12 @@ function socket_connect (host, port) {
     kernel_send(fifo, "select", this, fifo)
 }
 
+## Read from the socket
+# sockname: The name of the selector which sent the read.
+# input: The line which was read.
 function socket_read (sockname, input) {
-    print "socket->read()" >> "/dev/stderr"
+    kernel_send("log", "debug", this, "socket->read(\"%s\")", sockname)
+
     # Publish the input event to anyone listening...(?! should I be doing
     # this!?)  Maybe the listener should be a direct connection between the two
     # modules.  This will enter a for-loop in the kernel for each event.
@@ -58,26 +60,32 @@ function socket_read (sockname, input) {
     kernel_publish("read", input)
 }
 
-function socket_write (input) {
-    printf "socket->write(\"%s\")\n", input >> "/dev/stderr"
-    print input | socket
+## Write a string to the socket pipe
+function socket_write (output) {
+    kernel_send("log", "debug", this, "socket->write(\"%s\")", output)
+
+    print output | socket
 }
 
 # Close the socket by closing the input stream to the catalyst.  This should
 # usually work without intervention, and a "disconnect" event will be received
 # some time later as a result.
 function socket_close () {
-    print "socket->close()" >> "/dev/stderr"
+    kernel_send("log", "debug", this, "socket->close()")
     close(socket)
     socket = ""
 }
 
 # Simply exit
 function socket_disconnect () {
-    print "socket->disconnect()" >> "/dev/stderr"
+    kernel_send("log", "debug", this, "socket->disconnect()")
+
     system("rm " fifo)
     kernel_shutdown()
 }
+
+# -----------------------------------------------------------------------------
+# The dispatch table
 
 "read"       == $1 { socket_read($2,$3)    }
 "write"      == $1 { socket_write($2)      }

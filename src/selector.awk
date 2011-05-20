@@ -11,48 +11,28 @@
 
 BEGIN { running = 0 }
 
+# Once this message is recieved, the selector will recieve no more messages.
+# It's important that no one messages this module since such messages will
+# deadlock the kernel.  I've tried numerous paths, but there is no way around
+# this behavior while maintaining proper cleanup routines (calling close() on a
+# pipe seems to invoke a waitpid) so it must be known.
 "select" == $1 {
-    print "selector->select()" >> "/dev/stderr"
     module   = $2
     filename = $3
 
-    # Disconnects itself from the kernel...
-    kernel_shutdown()
-}
+    kernel_send("log", "debug", this, "select routine started")
 
-# Now that we're in running mode, we just fire off an event for each protocol
-# record we see
-running {
-#    printf "selector->get(\"%s\")\n", $0 >> "/dev/stderr"
-    sub(/\r$/, "")
-    kernel_send(module, "read", this, $0)
-}
+    while ((getline input < filename) > 0) {
+        sub(/\r$/, "", input)
+        kernel_send(module, "read", this, input)
+    }
 
+    close(filename)
 
-# Now disconnected, spiral off into our own process (this is a very abusive way
-# to use the fini message, but it should work perfectly).
-
-"fini" == $1 {
-    print "selector->fini()" >> "/dev/stderr"
-    ARGV[ARGC++] = filename
-    running = 1
-
-    nextfile
-
-#    if (filename) {
-#	# Goes into local loop until stream ends
-#	while ((getline input < filename) > 0) {
-#	    kernel_send(module, "read", this, input)
-#	}
-#
-#	# Once the stream ends, the selector will send a disconnect signal
-#        # Note if we got fini due to an immediate shutdown (unlikely, but
-#        # totally possible) the kernel might not be there anymore...
-#	kernel_send(module, "disconnect", this)
-#    }
-}
-
-# And now that we've seen an EOF, we just fire off a disconnect event
-END {
+    # Once the stream ends, the selector will send a disconnect signal
     kernel_send(module, "disconnect", this)
+
+    # After sending the disconnect event, request the shutdown, closing our
+    # resources in the kernel and etc.
+    kernel_shutdown()
 }

@@ -22,8 +22,9 @@ function irc_fini () {
 
 ## Connect to the IRC server
 function irc_server (host, port, nickname, username, realname) {
-    printf "irc->server(\"%s\",%s,\"%s\",\"%s\",\"%s\")\n", \
-           host, port, nickname, username, realname >> "/dev/stderr"
+    kernel_send("log", "debug", this, \
+                "irc->server(\"%s\",%s,\"%s\",\"%s\",\"%s\")", \
+                host, port, nickname, username, realname)
 
     irc["nickname"] = nickname
     irc["username"] = username
@@ -38,7 +39,8 @@ function irc_server (host, port, nickname, username, realname) {
 
 ## Join the given channel
 function irc_join (channel) {
-    printf "irc->join(\"%s\")\n", channel >> "/dev/stderr"
+    kernel_send("log", "debug", this, "irc->join(\"%s\")", channel)
+
     kernel_send(socket, "write", sprintf("JOIN %s", channel))
 }
 
@@ -130,7 +132,7 @@ function irc_parse_message (payload, fields     ,b,nick,host,type,message) {
 function irc_parse_input (payload ,fields) {
     split(payload, fields, / /)
 
-    printf "irc->input(\"%s\")\n", fields[2] >> "/dev/stderr"
+    kernel_send("log", "debug", this, "irc->input(\"%s\")", fields[2])
 
     if (fields[1] == "PING") {
         kernel_send(socket, "write", sprintf("PONG %s", fields[2]))
