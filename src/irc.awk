@@ -1,7 +1,4 @@
-#!/usr/bin/awk -f
-# vim600:set ts=4 sw=4 expandtab cin nowrap:
-
-# AWK irc library -> irc.pod for details
+# AMS IRC module
 # -----------------------------------------------------------------------------
 # "THE BEER-WARE LICENSE" (Revision 43) borrowed from FreeBSD's jail.c
 # <tag@cpan.org> wrote this file.  As long as you retain this notice you
@@ -9,197 +6,150 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
-# This library implements the IRC protocol only.  An example of how to make it
-# work with gawk's /inet/tcp is provided below.
+## Load the socket module, but do not connect to anything.
+# This means one instance of the IRC module is required per IRC connection.
+function irc_init () {
+    socket = this "-sock"
 
-#import <socket.awk>
-
-# -----------------------------------------------------------------------------
-# Event traps
-
-$0 == "INIT"    { irc_parse_init()      }
-$2 == "001"     { irc_parse_connect()   }
-$2 == "PRIVMSG" { irc_parse_privmsg()   }
-$1 == "ERROR"   { irc_parse_error()     }
-$2 == "INVITE"  { irc_parse_invite()    }
-$1 == "PING"    { irc_parse_ping()      }
-
-# -----------------------------------------------------------------------------
-# Event handlers
-function irc_parse_init() {
-    if (irc["register", "initialize"]) irc_handler_initialize()
-}
-function irc_parse_connect () {
-    if (irc["register", "connect"]) irc_handler_connect()
+    kernel_load("socket.awk", socket)
 }
 
-# :tag!~tag@c-67-183-29-168.client.comcast.net PRIVMSG #awk :OK
-function irc_parse_privmsg (    argc,arg,i,t,s,nick,host,recipient,msg) {
-    if ($0 ~ /\x01.*\x01\r/) {
-        if (irc["register", "ctcp"]) {
-            # This is the real biatch!
-#           match($0, ":([^!]*)!([^ ]*) PRIVMSG ([^ ]*) :([^\r]*)", t)
-            split($0, t, /(:|!|\r| PRIVMSG )/)
+# Clean up by disconnecting the socket.  This doesn't happen elsewhere, so we
+# assume the socket is still around.
+function irc_fini () {
+    kernel_send(socket, "disconnect")
+}
 
-            match(t[5], ":\x01([A-Z][A-Z]*)")
+## Connect to the IRC server
+function irc_server (host, port, nickname, username, realname) {
+    irc["nickname"] = nickname
+    irc["username"] = username
+    irc["realname"] = realname
 
-            # Snag the first word and save it in arg[1
-            arg[1] = substr(t[5], RSTART + 2, RLENGTH - 3)
+    kernel_send(socket, "connect", host, port)
+    kernel_send(socket, "write", "NICK " nickname)
+    kernel_listen(socket, "read", "input")
 
-            # Save the end of it's index
-            i = (RSTART + 2) + (RLENGTH - 3)
+    irc_sockwrite("USER " username " a a :" realname)
+}
 
-            # Now match the whole string until the \x01
-            match($0, ":\x01([^\x01]*)\x01")
+## Join the given channel
+function irc_join (channel) {
+    kernel_send(socket, sprintf("JOIN %s", channel))
+}
 
-            # Copy from the end-index of the first word until the last \x01,
-            # giving the second half of the string (plus a whitespace)
-            arg[2] = substr(t[5], i + 1, RLENGTH - (i + 3))
+## Private message the given target
+function irc_msg (target, message) {
+    kernel_send(socket, sprintf("PRIVMSG %s :%s", target, message))
+}
 
-            irc_handler_ctcp(t[2], t[3], t[4], arg[1], arg[2])
-        }
+## Send a notice
+function irc_notice (target, message) {
+    kernel_send(socket, sprintf("PRIVMSG %s :%s", target, message))
+}
+
+# -----------------------------------------------------------------------------
+# Protocol parsing and event handling
+
+## Return the multiword part of this string.
+#
+# The IRC Protocol prefixes multiword parameters with ":".  This will return
+# the multiword segment from a raw message, with the ":" trimmed.
+function string (payload) {
+    return substr(payload, index(payload, ":") + 1)
+}
+
+## Wrap a message in ctcp characters
+function ctcp (payload) {
+    return sprintf("%c%s%c", 1, payload, 1)
+}
+
+## Parse a CTCP message.
+#
+# Parse a CTCP message and dispatch a corresponding event.  If the message was
+# a NOTICE, which sent CTCP "PING", the "ctcp_ping_response" event is
+# dispatched.
+function irc_parse_ctcp (type, recipient, nick, host, message   \
+                         ,action,param,event)
+{
+    # Trim the 0x01's
+    message = substr(message, 2, length(message) - 2)
+
+    # The first word is the action
+    action = lower(substr(message, 1, index(message, " ") - 1))
+
+    # The parameters are the rest...
+    param = substr(message, length(action) + 2)
+
+    # Respond to pings automatically
+    if (action == "ping" && type == "PRIVMSG") {
+        irc_notice(nick, ctcp(message))
+    }
+
+    event = sprintf("ctcp_%s%s", action, (type == "NOTICE" ? "_response" : ""))
+
+    kernel_publish(event, param)
+}
+
+## Parse an IRC message (either PRIVMSG or NOTICE), and publish the event.
+#
+# Given a message, parse out the nickname, hostmask, message itself and
+# recipient and dispatch a "privmsg" or "notice" event for them, assuming they
+# are not CTCP.  If the message is a CTCP message, irc_parse_ctcp does the
+# dispatching.
+#
+# payload: The raw payload from the socket.
+# fields: Each word separated as an array
+function irc_parse_message (payload, fields     ,b,nick,host,type,message) {
+    # Payload itself is a multiword message.
+    payload = string(payload)
+
+    b    = index(payload, "!")
+    nick = substr(payload, 1, b)
+    host = substr(payload, b, length(fields[1]))
+
+    type      = fields[2]
+    recipient = fields[3]
+
+    # Subsequent message body is multiword, too
+    message = string(payload)
+
+    if (substr(message, 1, 1) == sprintf("%c", 1)) {
+        irc_parse_ctcp(type, recipient, nick, host, message)
     }
     else {
-        if (irc["register", "privmsg"]) {
-            i = index($0, "!")
-
-            nick = substr($0, 2, i - 2)
-
-            t = index($0, " ")
-
-            host = substr($0, i + 1, t - i - 1)
-
-            # Chomp all the parsed bits off the string
-            s = substr($0, t + 9)
-
-            recipient = substr(s, 1, index(s, " ") - 1)
-
-            msg = substr(s, index(s, ":") + 1)
-
-            argc = split(msg, arg)
-            irc_handler_privmsg(nick, host, recipient, msg, argc, arg)
-        }
+        kernel_publish(tolower(type), recipient, nick, host, message)
     }
 }
 
-function irc_parse_invite () { return }
-function irc_parse_ping () { 
-    if (irc["register", "ping"]) irc_handler_ping($2)
+## Parse a raw IRC protocol message
+function irc_input (payload ,fields) {
+    split(payload, fields, / /)
 
-    irc_sockwrite("PONG " $2 "\r\n") 
-}
-function irc_parse_error (  message) {
-    if (irc["register", "error"]) irc_handler_error()
-
-    irc_sockclose()
-}
-
-# -----------------------------------------------------------------------------
-# Runtime Control API
-function irc_register   (event)     { irc["register", event] = 1 }
-function irc_unregister (event)     { irc["register", event] = 0 }
-function irc_error      (message)   { print message; exit(1);    }
-
-# -----------------------------------------------------------------------------
-# Connection API
-function irc_privmsg (target, message) {
-    irc_sockwrite(sprintf("PRIVMSG %s :%s", target, message))
-}
-
-function irc_ctcp (target, type, arg) {
-    irc_sockwrite(sprintf("PRIVMSG %s :\x01%s %s\x01", target, type, arg))
-}
-
-function irc_ctcp_reply (target, type, arg) {
-    irc_sockwrite(sprintf("NOTICE %s :\x01%s %s\x01", target, type, arg))
-}
-
-function irc_join (channel) {
-    irc_sockwrite(sprintf("JOIN %s", channel))
-}
-
-function irc_part (channel, message) {
-    irc_sockwrite(sprintf("PART %s :%s", channel, message))
-}
-
-function irc_quit (message) {
-    irc_sockwrite(sprintf("QUIT :%s", message))
-}
-
-function irc_connect (server    ,t,host,port) { 
-    # Pull host and port from host:port string
-    split(server, t, /:/)
-
-    host = t[1]
-    port = t[2] ? t[2] : 6667
-
-    socket_init(irc_socket, irc["tempfile"], !irc["tailpipe"])
-    socket_connect(irc_socket, host, port)
-
-    irc_sockwrite("NICK " irc["nickname"])
-    irc_sockwrite("USER " irc["username"] " a a :" irc["realname"])
-}
-
-function irc_set (key, value) { irc[key] = value }
-
-# -----------------------------------------------------------------------------
-# Raw internals
-
-# Now just wraps socket_write
-function irc_sockwrite (data) {
-    socket_write(irc_socket, data "\r\n")
-}
-
-# Just wraps socket_close
-function irc_sockclose () {
-    socket_close(irc_socket)
+    if (fields[1] == "PING") {
+        kernel_send(socket, sprintf("PONG %s", fields[2]))
+    }
+    if (fields[1] == "ERROR") {
+        kernel_publish("error", string(payload))
+    }
+    if (fields[2] == "001") {
+        kernel_publish("connected")
+    }
+    if (fields[2] == "PRIVMSG") {
+        irc_parse_message(payload, fields)
+    }
+    if (fields[2] == "NOTICE") {
+        irc_parse_message(payload, fields)
+    }
 }
 
 # -----------------------------------------------------------------------------
-# This is an example main loop, awkbot used to use it.  I keep it in this
-# source file only as an example, and will some day soon move it out into a
-# test suite or some other bit of code.  This code is well tested, and works
-# like a charm, without flooding the filesystem with too much data.
-#
-# # Initialization
-#
-# BEGIN {
-#     if (!irc["tempfile"]) irc["tempfile"] = irc_allocate_tempfile()
-# 
-#     print "INIT" > irc["tempfile"]
-#     close(irc["tempfile"])
-# 
-#     ARGV[ARGC++] = irc["tempfile"] 
-# }
-# 
-# # Cleanup
-#
-# END {
-#     system(sprintf("rm %s", irc["tempfile"]))
-# }
-# 
-# # Main loop
-# 
-# { 
-#
-#     if (irc["using_inet_tcp"] && irc["socket"]) {
-#         # Get next line from socket and put in file for parsing
-#         irc["socket"] |& getline
-#     
-#         # Cycle Tempfile every 1000th line.
-#         if (FNR == 1000) {
-#             print > irc["tempfile"]
-#             ARGV[ARGC++] = FILENAME
-#             delete ARGV[ARGC - 2]
-#         } 
-#         
-#         # Write to tempfile for next iteration
-#         else print >> irc["tempfile"] 
-#         close(irc["tempfile"])
-# 
-#         if (irc["debug"]) print
-#     }
-# }
+# Dispatch table
 
-END { if (irc["socket"]) close(irc["socket"]) }
-
+"init"   == $1 { irc_init()                 }
+"server" == $1 { irc_server($2,$3,$4,$5,$6) }
+"join"   == $1 { irc_join($2)               }
+"msg"    == $1 { irc_msg($1,$2)             }
+"input"  == $1 { irc_input($2)              }
+"quit"   == $1 { irc_quit($2)               }
+"fini"   == $1 { irc_fini()                 }
