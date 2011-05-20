@@ -11,8 +11,6 @@
 # realized I could actually have tcp sockets in all awks using the same method
 # and decided to abstract it to a seperate library.
 
-#import <tempfile.awk>
-
 # Determine whether netcat or telnet are appropriate.  Favor netcat, and do
 # nothing if the user specified one instead.
 BEGIN {
@@ -71,7 +69,7 @@ function socket_disconnect () {
 "write"      == $1 { socket_write($2)      }
 "close"      == $1 { socket_close()        }
 "connect"    == $1 { socket_connect($2,$4) }
-"disconnect" == $1 { kernel_shutdown()     }
+"disconnect" == $1 { socket_disconnect()   }
 
 # Shutdown handler, incase premature shutdown occurs, try not to leave any
 # straggling processes about.
