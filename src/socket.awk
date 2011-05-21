@@ -76,11 +76,15 @@ function socket_close () {
     socket = ""
 }
 
-# Simply exit
+# We were disconnected, publish the disconnect event and then shut ourselves
+# down.
 function socket_disconnect () {
     kernel_send("log", "debug", this, "socket->disconnect()")
 
     system("rm " fifo)
+
+    kernel_publish("disconnected")
+
     kernel_shutdown()
 }
 

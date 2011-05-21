@@ -16,10 +16,36 @@ function irc_init () {
     kernel_load("socket.awk", socket)
 }
 
-# Clean up by disconnecting the socket.  This doesn't happen elsewhere, so we
-# assume the socket is still around.
+# Clean up by disconnecting the socket, if it's still around.  If it's not
+# still around, we're shutting down because the disconnect was found
+# prematurely.
 function irc_fini () {
+    # If the socket is still around, then make a last-ditch attempt to shut it
+    # down.
+    if (socket) {
+        kernel_send(socket, "disconnect")
+    }
+}
+
+# Socket has disconnected, publish an error event and shut down.
+function irc_disconnected () {
+    # If the socket is around, the disconnect was arbupt (socket catalyst
+    # died), so we must publish an error.
+    if (socket) {
+        kernel_publish("error", "Socket terminated prematurely")
+
+        socket = ""
+    }
+
+    kernel_shutdown()
+}
+
+# User requested disconnect, disconnect the socket and shut down
+# We turn off the socket to indicate the user requested this.
+function irc_disconnect () {
     kernel_send(socket, "disconnect")
+
+    socket = ""
 }
 
 ## Connect to the IRC server
@@ -37,6 +63,7 @@ function irc_server (host, port, nickname, username, realname) {
     kernel_send(socket, "write", "NICK " nickname)
     kernel_send(socket, "write", "USER " username " a a :" realname)
     kernel_listen(socket, "read", "input")
+    kernel_listen(socket, "disconnected")
 }
 
 ## Join the given channel
@@ -180,12 +207,14 @@ function irc_parse_input (payload ,fields) {
 # -----------------------------------------------------------------------------
 # Dispatch table
 
-"init"   == $1 { irc_init()                 }
-"server" == $1 { irc_server($2,$3,$4,$5,$6) }
-"join"   == $1 { irc_join($2)               }
-"msg"    == $1 { irc_msg($2,$3)             }
-"input"  == $1 { irc_parse_input($2)        }
-"quit"   == $1 { irc_quit($2)               }
-"reply"  == $1 { irc_ctcp_reply($2,$3,$4)   }
-"ctcp"   == $1 { irc_ctcp($2,$3)            }
-"fini"   == $1 { irc_fini()                 }
+"init"         == $1 { irc_init()                 }
+"server"       == $1 { irc_server($2,$3,$4,$5,$6) }
+"join"         == $1 { irc_join($2)               }
+"msg"          == $1 { irc_msg($2,$3)             }
+"input"        == $1 { irc_parse_input($2)        }
+"quit"         == $1 { irc_quit($2)               }
+"reply"        == $1 { irc_ctcp_reply($2,$3,$4)   }
+"ctcp"         == $1 { irc_ctcp($2,$3)            }
+"fini"         == $1 { irc_fini()                 }
+"disconnect"   == $1 { irc_disconnect()           }
+"disconnected" == $1 { irc_disconnected()         }

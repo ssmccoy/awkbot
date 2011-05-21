@@ -1,5 +1,6 @@
 # by pgas
 # Hopefully someone will make this support powers and arbitrary precision
+# Also it should work without spaces.
 # simple 4 ops calculator
 # usage:    print calc("5 * (1 + 2) * 5 + 7")
 

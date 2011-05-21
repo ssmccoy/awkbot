@@ -10,6 +10,7 @@
 #use config.awk
 #use trim.awk
 #use log.awk
+#use calc.awk
 
 BEGIN {
     config_load("etc/awkbot.conf")
@@ -21,7 +22,7 @@ BEGIN {
     assert(config("irc.port"), "port not specified in config")
 }
 
-function awkbot_init (	server,port,nick,user,name,logfile,loglevel) {
+function awkbot_init (	logfile,loglevel) {
     # Set up the logger first, since everything else will try and write to it.
     kernel_load("logger.awk", "log")
 
@@ -36,6 +37,17 @@ function awkbot_init (	server,port,nick,user,name,logfile,loglevel) {
         kernel_send("log", "level", "default", loglevel)
     }
 
+    kernel_load(config("database"), "database")
+
+    kernel_listen("database", "uptime", "send_response")
+    kernel_listen("database", "info",   "send_response")
+    kernel_listen("database", "karma",  "send_response")
+    kernel_listen("database", "answer", "send_response")
+
+    awkbot_connect()
+}
+
+function awkbot_connect (   server,port,nick,user,name) {
     kernel_load("irc.awk", "irc")
 
     server = config("irc.server")
@@ -48,6 +60,7 @@ function awkbot_init (	server,port,nick,user,name,logfile,loglevel) {
     kernel_listen("irc", "connected")
     kernel_listen("irc", "privmsg")
     kernel_listen("irc", "ctcp_version")
+    kernel_listen("irc", "error")
 
     kernel_send("irc", "server", server, port, nick, user, name)
 
@@ -58,16 +71,39 @@ function awkbot_connected () {
     kernel_send("irc", "join", "#awkbot-test")
 }
 
-function awkbot_privmsg (recipient, nick, host, message     ,m,address,action) {
+function awkbot_privmsg (recipient, nick, host, message \
+			 ,target,prefix,m,address,action,terms)
+{
     # If the user wasn't speaking to awkbot directly (private message) then
     # determine who they were addressing in a channel (potentially awkbot)
     if (recipient == awkbot) {
         address = awkbot
+	target  = nick
+	prefix  = ""
     }
     else {
         m       = match(message, /:| /)
         address = substr(message, 1, m - 1)
         message = trim(substr(message, m + 1))
+	target  = recipient
+	prefix  = sprintf("%s: ", nick)
+    }
+
+    # TODO All of the below should be scriptable... it makes no sense to have
+    # one big fat routine doing all of this...
+    split(message, terms, / */)
+
+    if (match(terms[1], /^(.*)(\+\+|--)$/)) {
+        m = substr(terms[1], 1, length(terms[1]) - 2)
+	action = (substr(terms[1], length(terms[1]) - 1) == "++") ? \
+	       "karma_inc" : "karma_dec"
+
+        if (m == nick) {
+	    kernel_send("irc", "msg", target, prefix "You can't do that")
+        }
+        else {
+	    kernel_send("database", action, m)
+        }
     }
 
     # The user wasn't addressing us, ignored.
@@ -75,12 +111,32 @@ function awkbot_privmsg (recipient, nick, host, message     ,m,address,action) {
         return debug("message addressed to %s, not %s", address, awkbot) 
     }
 
-    # Echo.
-    if (recipient == awkbot) {
-        kernel_send("irc", "msg", nick, message)
+    action = terms[1]
+
+    # These first three should be generalized
+    if (action == "uptime") {
+	kernel_send("database", "uptime", target, prefix)
+    }
+    else if (action == "info") {
+	kernel_send("database", "info", target, prefix, terms[2])
+    }
+    else if (action == "karma") {
+	kernel_send("database", "karma", target, prefix, terms[2])
+    }
+    else if (action == "forget") {
+	# length of "forget" + 2 (1 for space) 
+	kernel_send("database", "forget", substr(message, 8))
+    }
+    else if (message ~ /^[0-9^.*+\/() -][0-9^.*+\/() -]*$/) {
+	kernel_send("irc", "msg", target, prefix calc(message))
+    }
+    else if ((m = index(message, " is ")) > 0) {
+	kernel_send("database", "answer", \
+		    substr(message, 1, m - 1),
+		    substr(message, m + 4))  # length of " is "
     }
     else {
-        kernel_send("irc", "msg", recipient, message)
+	kernel_send("database", "question", target, prefix, message)
     }
 }
 
@@ -92,195 +148,39 @@ function awkbot_ctcp_version (recipient, nick, host) {
                 "awkbot https://github.com/ssmccoy/awkbot")
 }
 
+## Send the result of a database query
+# target: The recipient of the message
+# prefix: The person to be addressed, if any
+# result: The message to send.
+function awkbot_send_result (target, prefix, result) {
+    if ("" != result) {
+	kernel_send("irc", "msg", target, prefix result)
+    }
+    else {
+	kernel_send("irc", "msg", target, prefix "I don't know that")
+    }
+}
+
+## We got an error from the IRC server.
+# This means the connection was terminated.  Shut down the IRC module by
+# sending it a disconnect (which should cause it to shut itself and it's socket
+# down, which should shut down the selector) and then after a small delay,
+# attempt to reconnect.
+function awkbot_error () {
+    kernel_send("irc", "disconnect")
+
+    # Wait 10 seconds, just to be nice.
+    system("exec sleep 10")
+    awkbot_connect()
+}
+
 # -----------------------------------------------------------------------------
 # The dispatch table
 
-"init"         == $1 { awkbot_init()                    }
-"connected"    == $1 { awkbot_connected()               }
-"privmsg"      == $1 { awkbot_privmsg($2,$3,$4,$5)      }
-"ctcp_version" == $1 { awkbot_ctcp_version($2,$3,$4) }
+"init"          == $1 { awkbot_init()                 }
+"connected"     == $1 { awkbot_connected()            }
+"privmsg"       == $1 { awkbot_privmsg($2,$3,$4,$5)   }
+"ctcp_version"  == $1 { awkbot_ctcp_version($2,$3,$4) }
+"send_response" == $1 { awkbot_send_result($2,$3,$4)  }
+"error"         == $1 { awkbot_error()                }
 
-# -----------------------------------------------------------------------------
-# XXX The following is for reference only.  It is antiquated and will need to
-# be removed.
-function irc_handler_error () {
-    reconnect()
-}
-
-function irc_handler_connect (  channel,key,msg) { 
-    split(config("irc.channel"), channel)
-    for (key in channel) irc_join("#" channel[key]) 
-
-    msg = config("irc.startup")
-
-    if (msg) irc_sockwrite(msg "\r\n")
-
-    awkbot_db_status_connected(1)
-}
-
-function irc_handler_ctcp (nick, host, recipient, action, argument) {
-    # Don't respond to channel ctcps
-    if (recipient !~ /\#/) {
-        if (tolower(action) == "version") {
-            irc_ctcp_reply(nick, action, VERSION)
-        }
-
-        else if (tolower(action) == "ping") {
-            irc_ctcp_reply(nick, action, argument)
-        }
-    }
-}
-
-func calc (expr ,result,bc) {
-    bc = "bc -q"
-    print "scale=10" |& bc
-    print expr       |& bc
-    print "quit"     |& bc
-    bc |& getline result
-    close(bc)
-
-    # coerce to number
-    return result + 0
-}
-
-function irc_handler_privmsg (nick, host, recipient, message, argc, arg  \
-    ,direct,target,address,action,c_msg,larg,t,q,a,s)
-{
-    if (recipient ~ /^#/) target = recipient
-    else                  target = nick
-
-#    print "irc_handler_privmsg(", nick "," host "," recipient "," \
-#        message "," argc ")" >> "debug.log"
-
-    # A special case...
-    if (substr(arg[1], 0, length(irc["nickname"])) == irc["nickname"] &&
-            arg[1] !~ irc["nickname"] "\\+\\+")
-    {
-#        print "irc_handler_privmsg", "direct channel message" >> "debug.log"
-
-        direct  = 1
-        # Join the second word until the end as the cleaned message.
-        c_msg   = join(arg, 2, argc + 1, OFS)
-
-        # Remove the first item from the list of args...
-        shift(arg)
-    }
-    else {
-#        print "irc_handler_privmsg", "private message" >> "debug.log"
-
-        direct  = (target != recipient)
-        # It's either privmsg, or they're not talking to us, so the clean
-        # message is the whole message.
-        c_msg   = message
-    }
-
-    # Last arg is the arg count + 1
-    larg = argc + 1
-
-    # The "clean" message
-#    print "irc_handler_privmsg", "cleaned message:", c_msg >> "debug.log"
-
-    if (target == recipient) address = nick ": "
-    else address = ""
-
-    if (direct) {
-#        print "The message was directed as me" >> "debug.log"
-
-        if (arg[1] == "karma") {
-#            print "irc_handler_privmsg", "command", "karma" >> "debug.log"
-            awkbot_karma_get(target,arg[2])
-        }
-        else if (arg[1] == "forget") {
-#            print "irc_handler_privmsg", "command", "forget" >> "debug.log"
-            awkbot_db_forget(join(arg,2,argc,SUBSEP))
-            irc_privmsg(target, address "what's a "join(arg,2,larg)"?")
-        }
-        else if (arg[2] == "is") {
-#            print "irc_handler_privmsg", "command", "remember" >> "debug.log"
-            awkbot_db_answer(arg[1], join(arg, 3, larg, " "))
-            irc_privmsg(target, address "Okay")
-        }
-        # It's only numbers and stuff
-        else if (c_msg ~ /^[0-9^.*+\/() -][0-9^.*+\/() -]*$/) {
-#            print "irc_handler_privmsg", "command", "calc" >> "debug.log"
-            irc_privmsg(target, address calc(c_msg)) 
-        }
-        else if (arg[1] == "uptime") {
-#            print "irc_handler_privmsg", "command", "uptime" >> "debug.log"
-            a = awkbot_db_uptime();
-            irc_privmsg(target, address a)
-        }
-        else {
-#            print "irc_handler_privmsg", "command", "QnA" >> "debug.log"
-
-            # Portable equivilent of
-            # q = gensub(/\?$/, "", "g", join(arg, 1, sizeof(arg), SUBSEP))
-            q = join(arg, 1, larg, SUBSEP)
-            gsub(/\?$/, "", q)
-
-            if (a = awkbot_db_question(tolower(q))) {
-                irc_privmsg(target, address a)
-            }
-
-#            print "irc_handler_privmsg", "QnA", "q:", q, "a:", a >> "debug.log"
-        }
-    }
-
-    if (match(arg[1], /^(.*)\+\+$/)) {
-        s = substr(arg[1], 1, length(arg[1]) - 2)
-
-        if (s == nick) {
-            irc_privmsg(target, address "changing your own karma is bad karma")
-            awkbot_db_karma_dec(nick)
-        }
-        else {
-            awkbot_db_karma_inc(s)
-        }
-    }
-    if (match(arg[1], /^(.*)--$/)) {
-        s = substr(arg[1], 1, length(arg[1]) - 2)
-
-        if (s == nick) {
-            irc_privmsg(target, address "don't be dumb")
-            awkbot_db_karma_dec(nick)
-        }
-        else {
-            awkbot_db_karma_dec(s)
-        }
-    }
-
-    if (arg[1] == "awkdoc") {
-        irc_privmsg(target, address "awkdoc is temporarily disabled")
-
-#       if (arg[2]) {
-#           irc_privmsg(target, address awkdoc(arg[2]))
-#       }
-#       else {
-#           irc_privmsg(target, address "Usage is awkdoc < identifier >")
-#       }
-    }
-    else if (arg[1] == "awkinfo") {
-        if (arg[2]) {
-            a = awkbot_db_info(arg[2])
-
-            if (a) {
-                irc_privmsg(target, address a)
-            }
-            else {
-                irc_privmsg(target, address "I don't know anything about " \
-                        arg[2])
-            }
-        }
-        else {
-            irc_privmsg(target, address "Usage is awkinfo < keyword >")
-        }
-    }
-    else if (arg[1] == nick) {
-        irc_privmsg(target, address "Talking about yourself, are we?")
-    }
-}
-
-function awkbot_karma_get (reply_to,nickname     ,points)  {
-    points = awkbot_db_karma(nickname)
-    irc_privmsg(reply_to, sprintf("Karma for %s: %d points", nickname, points))
-}

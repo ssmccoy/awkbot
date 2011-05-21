@@ -4,13 +4,19 @@
 # can do whatever you want with this stuff. If we meet some day, and you think 
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy 
 # -----------------------------------------------------------------------------
-# deps: assert.awk mysql.awk
 
-#import <assert.awk>
+# Keep support for CPP (for awkpaste, for now)
 #import <config.awk>
 #import <mysql.awk>
 
+# Also support module loading...
+#use config.awk
+#use mysql.awk
+#use log.awk
+
 function awkbot_db_init () {
+    config_load("etc/awkbot.conf")
+
     mysql_login(config("mysql.username"), config("mysql.password"))
     mysql_db(config("mysql.database"))
 }
@@ -68,6 +74,8 @@ function awkbot_db_answer (question,answer) {
 }
 
 function awkbot_db_forget (question) {
+    debug("database->forget(\"%s\")", question)
+
     mysql_finish(mysql_query("DELETE FROM qna WHERE question = " \
                 mysql_quote(question)))
     return 1
@@ -166,3 +174,29 @@ function awkbot_db_uptime (     result,row,rv) {
 
     return result
 }
+
+# -----------------------------------------------------------------------------
+# Modularization - This is a little more than a dispatch table, the following
+# ports an unmodifiable old API to make this code a pub/sub module.  This
+# leaves the old API unchanged, with one exception - the awkbot_db_init()
+# method now loads the config file (this is necessary, since it will be in a
+# separate process in the new awkbot), causing awkpaste to parse the config
+# file twice.
+
+"init" == $1 { awkbot_db_init() }
+
+# Read messages publish their results... second and third parameters are
+# "state" parameters for the listeners.
+
+"uptime"   == $1 { kernel_publish("uptime", $2, $3, awkbot_db_uptime())     }
+"info"     == $1 { kernel_publish("info",   $2, $3, awkbot_db_info($4))     }
+"karma"    == $1 { kernel_publish("karma",  $2, $3, awkbot_db_karma($4))    }
+"question" == $1 { kernel_publish("answer", $2, $3, awkbot_db_question($4)) }
+
+# Write messages are just mapped
+
+"forget"    == $1 { awkbot_db_forget($2)          }
+"answer"    == $1 { awkbot_db_answer($2,$3)       }
+"livefeed"  == $1 { awkbot_db_status_livefeed($2) }
+"karma_inc" == $1 { awkbot_db_karma_inc($2)       }
+"karma_dec" == $1 { awkbot_db_karma_dec($2)       }
