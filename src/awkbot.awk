@@ -8,6 +8,8 @@
 
 #use assert.awk
 #use config.awk
+#use trim.awk
+#use log.awk
 
 BEGIN {
     config_load("etc/awkbot.conf")
@@ -45,6 +47,7 @@ function awkbot_init (	server,port,nick,user,name,logfile,loglevel) {
 
     kernel_listen("irc", "connected")
     kernel_listen("irc", "privmsg")
+    kernel_listen("irc", "ctcp_version")
 
     kernel_send("irc", "server", server, port, nick, user, name)
 
@@ -52,33 +55,50 @@ function awkbot_init (	server,port,nick,user,name,logfile,loglevel) {
 }
 
 function awkbot_connected () {
-    kernel_send("irc", "join", "#awk")
+    kernel_send("irc", "join", "#awkbot-test")
 }
 
 function awkbot_privmsg (recipient, nick, host, message     ,m,address,action) {
-    m = match(message, /:| /)
-    address = substr(message, 1, m - 1)
-
-    if (address != awkbot) {
-        kernel_send("log", "debug", this, "message addressed to %s, not %s", \
-                    address, awkbot)
-        return
-    }
-
+    # If the user wasn't speaking to awkbot directly (private message) then
+    # determine who they were addressing in a channel (potentially awkbot)
     if (recipient == awkbot) {
-        kernel_send("irc", "msg", nick, substr(message, m + 2))
+        address = awkbot
     }
     else {
-        kernel_send("irc", "msg", recipient, substr(message, m + 2))
+        m       = match(message, /:| /)
+        address = substr(message, 1, m - 1)
+        message = trim(substr(message, m + 1))
     }
+
+    # The user wasn't addressing us, ignored.
+    if (address != awkbot) {
+        return debug("message addressed to %s, not %s", address, awkbot) 
+    }
+
+    # Echo.
+    if (recipient == awkbot) {
+        kernel_send("irc", "msg", nick, message)
+    }
+    else {
+        kernel_send("irc", "msg", recipient, message)
+    }
+}
+
+function awkbot_ctcp_version (recipient, nick, host) {
+    debug("awkbot->ctcp_version(\"%s\", \"%s\", \"%s\")", \
+          recipient, nick, host)
+
+    kernel_send("irc", "reply", nick, "version", \
+                "awkbot https://github.com/ssmccoy/awkbot")
 }
 
 # -----------------------------------------------------------------------------
 # The dispatch table
 
-"init"      == $1 { awkbot_init()               }
-"connected" == $1 { awkbot_connected()          }
-"privmsg"   == $1 { awkbot_privmsg($1,$2,$3,$4) }
+"init"         == $1 { awkbot_init()                    }
+"connected"    == $1 { awkbot_connected()               }
+"privmsg"      == $1 { awkbot_privmsg($2,$3,$4,$5)      }
+"ctcp_version" == $1 { awkbot_ctcp_version($2,$3,$4) }
 
 # -----------------------------------------------------------------------------
 # XXX The following is for reference only.  It is antiquated and will need to

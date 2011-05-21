@@ -6,6 +6,8 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
+#use log.awk
+
 ## Load the socket module, but do not connect to anything.
 # This means one instance of the IRC module is required per IRC connection.
 function irc_init () {
@@ -51,7 +53,7 @@ function irc_msg (target, message) {
 
 ## Send a notice
 function irc_notice (target, message) {
-    kernel_send(socket, "write", sprintf("PRIVMSG %s :%s", target, message))
+    kernel_send(socket, "write", sprintf("NOTICE %s :%s", target, message))
 }
 
 # -----------------------------------------------------------------------------
@@ -70,6 +72,14 @@ function ctcp (payload) {
     return sprintf("%c%s%c", 1, payload, 1)
 }
 
+function irc_ctcp_reply (nick, type, param) {
+    irc_notice(nick, ctcp(sprintf("%s %s", toupper(type), param)))
+}
+
+function irc_ctcp (nick, request) {
+    irc_msg(nick, ctcp(toupper(request)))
+}
+
 ## Parse a CTCP message.
 #
 # Parse a CTCP message and dispatch a corresponding event.  If the message was
@@ -81,20 +91,33 @@ function irc_parse_ctcp (type, recipient, nick, host, message   \
     # Trim the 0x01's
     message = substr(message, 2, length(message) - 2)
 
+    debug("ctcp message %s", message)
+
     # The first word is the action
-    action = lower(substr(message, 1, index(message, " ") - 1))
+    if (index(message, " ")) {
+        action = tolower(substr(message, 1, index(message, " ") - 1))
+    }
+    else {
+        action = tolower(message)
+    }
+
+    debug("ctcp action %s", action)
 
     # The parameters are the rest...
     param = substr(message, length(action) + 2)
 
+    debug("ctcp param %s", param)
+
     # Respond to pings automatically
     if (action == "ping" && type == "PRIVMSG") {
-        irc_notice(nick, ctcp(message))
+        irc_ctcp_reply(nick, action, param)
     }
 
-    event = sprintf("ctcp_%s%s", action, (type == "NOTICE" ? "_response" : ""))
+    event = sprintf("ctcp_%s%s", action, (type == "NOTICE") ? "_response" : "")
 
-    kernel_publish(event, param)
+    debug("kernel->publish(\"%s\", \"%s\")", event, param)
+
+    kernel_publish(event, recipient, nick, host, param)
 }
 
 ## Parse an IRC message (either PRIVMSG or NOTICE), and publish the event.
@@ -111,8 +134,8 @@ function irc_parse_message (payload, fields     ,b,nick,host,type,message) {
     payload = string(payload)
 
     b    = index(payload, "!")
-    nick = substr(payload, 1, b)
-    host = substr(payload, b, length(fields[1]))
+    nick = substr(payload, 1, b - 1)
+    host = substr(payload, b + 1, length(fields[1]) - nick - 2)
 
     type      = fields[2]
     recipient = fields[3]
@@ -124,6 +147,9 @@ function irc_parse_message (payload, fields     ,b,nick,host,type,message) {
         irc_parse_ctcp(type, recipient, nick, host, message)
     }
     else {
+        debug("publish->privmsg(\"%s\",\"%s\",\"%s\",\"%s\")", \
+              recipient, nick, host, message)
+
         kernel_publish(tolower(type), recipient, nick, host, message)
     }
 }
@@ -157,7 +183,9 @@ function irc_parse_input (payload ,fields) {
 "init"   == $1 { irc_init()                 }
 "server" == $1 { irc_server($2,$3,$4,$5,$6) }
 "join"   == $1 { irc_join($2)               }
-"msg"    == $1 { irc_msg($1,$2)             }
+"msg"    == $1 { irc_msg($2,$3)             }
 "input"  == $1 { irc_parse_input($2)        }
 "quit"   == $1 { irc_quit($2)               }
+"reply"  == $1 { irc_ctcp_reply($2,$3,$4)   }
+"ctcp"   == $1 { irc_ctcp($2,$3)            }
 "fini"   == $1 { irc_fini()                 }
