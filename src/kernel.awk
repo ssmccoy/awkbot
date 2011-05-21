@@ -80,8 +80,6 @@ function dependencies (filename     ,loaded,input,df,depends) {
 
 function kernel_message (module, message, a1,a2,a3,a4,a5,a6,a7,a8,a9) {
     printf "kernel->message(\"%s\", \"%s\")\n", module, message >> "/dev/stderr"
-#    printf "args: %s,%s,%s,%s,%s,%s,%s,%s,%s\n", \
-#           a1,a2,a3,a4,a5,a6,a7,a8,a9 >> "/dev/stderr"
 
     print message,a1,a2,a3,a4,a5,a6,a7,a8,a9 | kernel["process", module]
 
@@ -112,6 +110,9 @@ function kernel_load (source, name  ,depends,input,words,filename,loaded) {
 
 ## Register a listener to an event.
 function kernel_listen (source, event, component, handler   ,i) {
+    printf "kernel->listen(\"%s\",\"%s\",\"%s\",\"%s\")\n", \
+           source, event, component, handler >> "/dev/stderr"
+
     i = ++kernel["listeners", source, event]
 
     kernel["listeners", source, event, i, "component"] = component
@@ -120,6 +121,9 @@ function kernel_listen (source, event, component, handler   ,i) {
 
 ## Find the given event listener and remove it.
 function kernel_clear (source, event, component, handler     ,i,found) {
+    printf "kernel->clear(\"%s\",\"%s\",\"%s\",\"%s\")\n", \
+           source, event, component, handler >> "/dev/stderr"
+
     found = 0
 
     for (i = 1;
@@ -192,13 +196,41 @@ function kernel_start (	    fifo,tempfile) {
     ARGV[ARGC++] = fifo
 }
 
-function kernel_shutdown (component) {
+function kernel_shutdown (component     ,key,kp) {
     printf "kernel->shutdown(\"%s\")\n", component >> "/dev/stderr"
-    kernel_message(component, "fini")
 
-    close(kernel["process", component])
-    delete kernel["process", component]
-    print "kernel->cleanup()" >> "/dev/stderr"
+    # Only shut the module down if it hasn't been shutdown already
+    if (kernel["process", component]) {
+        kernel_message(component, "fini")
+
+        # Clear all listeners this module has, and all listeners to this
+        # module.  This is a really ugly routine, the data structure which
+        # holds these should be a little nicer.
+        for (key in kernel) {
+            split(key, kp, SUBSEP)
+
+            if (kp[1] == "listeners") {
+                # If it's this component, then terminate the listeners
+                # whole-sale
+                if (kp[2] == component) {
+                    delete kernel[key]
+                }
+
+                # Otherwise check and see if this item is the listener, and
+                # then attempt to remove it cleanly through the kernel_clear
+                # routine.
+                if (kp[5] == "component" && kernel[key] == component) {
+                    kernel_clear(kp[2], kp[3], \
+                                 kernel[key], \
+                                 kernel[kp[1], kp[2], kp[3], kp[4], "handler"])
+                }
+            }
+        }
+
+        close(kernel["process", component])
+        delete kernel["process", component]
+        print "kernel->cleanup()" >> "/dev/stderr"
+    }
 }
 
 function kernel_exit (  key,kp) {
