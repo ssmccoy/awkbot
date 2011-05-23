@@ -195,8 +195,11 @@ function awkbot_db_uptime (     result,row,rv) {
 
 # Write messages are just mapped
 
-"forget"    == $1 { awkbot_db_forget($2)          }
-"answer"    == $1 { awkbot_db_answer($2,$3)       }
-"livefeed"  == $1 { awkbot_db_status_livefeed($2) }
-"karma_inc" == $1 { awkbot_db_karma_inc($2)       }
-"karma_dec" == $1 { awkbot_db_karma_dec($2)       }
+"forget"    == $1 { awkbot_db_forget($2)           }
+"answer"    == $1 { awkbot_db_answer($2,$3)        }
+"livefeed"  == $1 { awkbot_db_status_livefeed($2)  }
+"karma_inc" == $1 { awkbot_db_karma_inc($2)        }
+"karma_dec" == $1 { awkbot_db_karma_dec($2)        }
+"connected" == $1 { awkbot_db_status_connected($2) }
+"running"   == $1 { awkbot_db_status_running($2)   }
+"livefeed"  == $1 { awkbot_db_status_livefeed($2)  }

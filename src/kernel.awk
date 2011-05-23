@@ -57,6 +57,8 @@ function find (filename     ,r,i) {
     exit 1
 }
 
+## Parse a file and determine all of it's dependencies, and theirs,
+# recursively.
 function dependencies (filename     ,loaded,input,df,depends) {
     loaded[filename] = 1
 
@@ -88,7 +90,22 @@ function kernel_message (module, message, a1,a2,a3,a4,a5,a6,a7,a8,a9) {
     fflush(kernel["process", module])
 }
 
-# For now we use awkpath..
+# Attach an aribtrary pipe as module name.
+function kernel_attach (name, pipe) {
+    printf "kernel->attach(\"%s\",\"%s\")\n", name, pipe >> "/dev/stderr"
+    if (!kernel["process", name]) {
+        kernel["process", name] = pipe
+
+        kernel_message(name, "init", FILENAME)
+    }
+    else {
+        print "error", "A module of that name already exists" | pipe
+        print "fini" | pipe
+        close(pipe)
+    }
+}
+
+## Load a module.
 function kernel_load (source, name  ,depends,input,words,filename,loaded) {
     filename = find(source)
 
@@ -281,6 +298,9 @@ function kernel_init (  i,m,module) {
     }
     else if ("init" == $2) {
         kernel_init()
+    }
+    else if ("attach" == $2) {
+        kernel_attach($3,$4)
     }
 }
 

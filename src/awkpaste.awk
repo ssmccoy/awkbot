@@ -4,6 +4,7 @@
 #import <config.awk>
 #import <tempfile.awk>
 #import <awkbot_db_mysql.awk>
+#import <module.awk>
 #include "config.h"
 
 BEGIN {
@@ -28,11 +29,16 @@ BEGIN {
     }
     else {
         stream  = awkbot_db_status_livefeed()
+
+	# This is a really big hack so that kernel publishing will work.
+        # There *is* a better way to do this, but I want to quit working on
+        # this project for a while
+	_k_pipeline = stream
     
-        nick     = query["name"]
-        subject  = query["description"]
-        content  = query["content"]
-        language = query["language"]
+	nick     = query["name"]
+	subject  = query["description"]
+	content  = query["content"]
+	language = query["language"]
 
         errmsg  = ""
 
@@ -66,11 +72,8 @@ BEGIN {
         link    = sprintf("%s?id=%d", config("paste.cgi"), id)
     
         if (id) {
-            printf("say %s %s pasted %s at %s\n",    \
-                    config("paste.channel"), nick, subject,\
-                    link) >> stream
-    
-            close(stream)
+	    message = sprintf("%s pasted \"%s\" at %s", nick, subject, link)
+	    kernel_send("irc", "msg", config("paste.channel"), message)
 
             print "Location:", link
             print ORS

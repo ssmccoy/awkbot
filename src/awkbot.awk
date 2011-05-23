@@ -22,7 +22,7 @@ BEGIN {
     assert(config("irc.port"), "port not specified in config")
 }
 
-function awkbot_init (	logfile,loglevel) {
+function awkbot_init (stream,	logfile,loglevel) {
     # Set up the logger first, since everything else will try and write to it.
     kernel_load("logger.awk", "log")
 
@@ -43,6 +43,9 @@ function awkbot_init (	logfile,loglevel) {
     kernel_listen("database", "info",   "send_response")
     kernel_listen("database", "karma",  "send_response")
     kernel_listen("database", "answer", "send_response")
+
+    kernel_send("database", "running", 1)
+    kernel_send("database", "livefeed", stream)
 
     awkbot_connect()
 }
@@ -69,8 +72,18 @@ function awkbot_connect (   server,port,nick,user,name) {
 
 function awkbot_connected () {
     kernel_send("irc", "join", "#awkbot-test")
+    kernel_send("database", "connected", 1)
 }
 
+# Handler for privmsg...
+# This *should* be scriptable with some kind of rudementary meta-pattern
+# matching, but it's inanely complex instead.  Making it scriptable would (or
+# should) include having some expressions in a file, mappings of elements to
+# those expressions to parameters and event names to publish when the action
+# occurs, so that modules can simply register themselves to listen and react.
+#
+# These expressions could even be in a hash table, and modules could send them
+# to us.
 function awkbot_privmsg (recipient, nick, host, message \
 			 ,target,prefix,m,address,action,terms)
 {
@@ -93,6 +106,7 @@ function awkbot_privmsg (recipient, nick, host, message \
     # one big fat routine doing all of this...
     split(message, terms, / */)
 
+    # Modify karma (if it was for karma)
     if (match(terms[1], /^(.*)(\+\+|--)$/)) {
         m = substr(terms[1], 1, length(terms[1]) - 2)
 	action = (substr(terms[1], length(terms[1]) - 1) == "++") ? \
@@ -140,6 +154,7 @@ function awkbot_privmsg (recipient, nick, host, message \
     }
 }
 
+# Respond to version requests as 'awkbot' with the github URL.
 function awkbot_ctcp_version (recipient, nick, host) {
     debug("awkbot->ctcp_version(\"%s\", \"%s\", \"%s\")", \
           recipient, nick, host)
@@ -167,9 +182,10 @@ function awkbot_send_result (target, prefix, result) {
 # down, which should shut down the selector) and then after a small delay,
 # attempt to reconnect.
 function awkbot_error () {
+    kernel_send("database", "connected", 0)
     kernel_send("irc", "disconnect")
 
-    # Wait 10 seconds, just to be nice.
+    # Wait 10 seconds before reconnecting, just to be polite
     system("exec sleep 10")
     awkbot_connect()
 }
@@ -177,7 +193,7 @@ function awkbot_error () {
 # -----------------------------------------------------------------------------
 # The dispatch table
 
-"init"          == $1 { awkbot_init()                 }
+"init"          == $1 { awkbot_init($2)               }
 "connected"     == $1 { awkbot_connected()            }
 "privmsg"       == $1 { awkbot_privmsg($2,$3,$4,$5)   }
 "ctcp_version"  == $1 { awkbot_ctcp_version($2,$3,$4) }
