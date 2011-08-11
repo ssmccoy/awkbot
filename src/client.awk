@@ -6,6 +6,9 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
+#use mkfifo.awk
+#use tempfile
+
 BEGIN {
     connection = ""
     # TODO We obviously need an mkfifo
@@ -19,18 +22,21 @@ function client_send (component, message, a1,a2,a3,a4,a5,a6,a7,a8) {
     fflush(connection)
 }
 
+function remove (filename) {
+    system("exec rm " filename)
+}
+
 # Message the kernel that we need to send them a message
-function client_connect (stream) {
+function client_connect (listener) {
     connection = stream
 
-    tempfile_command | getline fifo
-    close(tempfile_command)
+    fifo = tempfile("client")
 
-    system("rm " fifo)
-    system("mkfifo " fifo)
+    remove(fifo)
 
-    # It's a pipe, so we need cat...hah!
-    client_send("kernel", "attach", fifo, "exec cat > "fifo)
+    mkfifo(fifo)
+
+    print "connect", fifo >> listener
 
     # Cause the selector to start reading from our special fifo the other
     # kernel has been made aware of
@@ -45,8 +51,10 @@ function client_listen (component, event, handler) {
 }
 
 ## Read a message our component recieved, and publish it as an event.
-function client_read (message, a1,a2,a3,a4,a5,a6,a7,a8,a9) {
-    kernel_publish(a1,a2,a3,a4,a5,a6,a7,a8,a9)
+function client_read (file, message	,a) {
+    split(message, a)
+
+    kernel_publish(a[1],a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9])
 }
 
 function client_disconnect (source) {

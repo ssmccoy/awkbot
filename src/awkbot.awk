@@ -22,7 +22,7 @@ BEGIN {
     assert(config("irc.port"), "port not specified in config")
 }
 
-function awkbot_init (stream,	logfile,loglevel) {
+function awkbot_init (stream,	logfile,loglevel,sockname) {
     # Set up the logger first, since everything else will try and write to it.
     kernel_load("logger.awk", "log")
 
@@ -46,6 +46,13 @@ function awkbot_init (stream,	logfile,loglevel) {
 
     kernel_send("database", "running", 1)
     kernel_send("database", "livefeed", stream)
+
+    sockname = config("sockname")
+
+    if ("" != sockname) {
+	kernel_load("listener.awk", "listener")
+	kernel_send("listener", "listen", sockname)
+    }
 
     awkbot_connect()
 }

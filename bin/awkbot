@@ -1,42 +1,93 @@
 #!/bin/sh
-# awkpp is becoming a maintenance nightmare, and I'm able to ditch it by using
-# cpp and it's highly deprecated "import" statement instead.
 
-while true
-do
-    # Run the bootstrap, this doesn't do jack but allocate a file.
-    bootstrap=`tempfile`
-    cpp -I /usr/share/awk -I src src/awkbot-boot.awk 2> /dev/null > $bootstrap
-    livedata=`awk -f $bootstrap /dev/null`
-    status=$?
+BIN="`dirname $0`"
 
-    if [ $status -ne 0 ]
-    then echo "Bootstrap script ($bootstrap) exited prematurely, please inspect"
-         exit 1
+# Instance Settings
+AWKPATH=""
+AWKBOT_HOME="`dirname $BIN`"
+LOGDIR="$AWKBOT_HOME/logs"
+
+# Bootstrap Settings
+command="awk -f $AWKBOT_HOME/src/kernel.awk awkbot.awk"
+name=`basename $0`
+
+if [ "" = "$AWKPATH" ]
+then
+    if [ -d "/usr/share/awk" ]
+    then AWKPATH="/usr/share/awk"
     fi
+fi
 
-    # Done with this one
-    rm $bootstrap
+export AWKPATH="$AWKBOT_HOME/src:$AWKPATH"
 
-    awkbot=`tempfile`
-    cpp -I /usr/share/awk/ -I src src/awkbot.awk 2> /dev/null > $awkbot
+# Daemon Management
+pidfile="$AWKBOT_HOME/run/$name.pid"
 
-    # Give our continuous input through a pipe to tail.  tail -f never exits.
-    # Note, that this means awkbot never exits unless killed from the outside.
-    rm $livedata
-    mkfifo $livedata
-    chmod 666 $livedata
+if [ -e $pidfile ]
+then pid=`cat $pidfile`
+else pid=0
+fi
 
-    awk -f $awkbot $livedata
+case $1 in 
+    'start')
+        if [ $pid -eq 0 ]
+        then $command &
+             echo $! > $pidfile
+        else echo "It appears $name is already running (pid $pid)"
+             echo "Please run \"$0 cleanup\" if this is not true"
+        fi
+    ;;
 
-    status=$?
+    'stop')
+        if [ $pid -eq 0 ]
+        then echo "It doesn't appear that $name is running"
+        else echo "$name is shutting down, this may take a while."
+             echo "if $name's shutdown process is too slow, run $0 $1 again"
+             echo "to stop the process forcefully, but without proper cleanup"
 
-    if [ $status -ne 0 ]
-    then echo "Generated script ($awkbot) exited prematurely, please inspect"
-         exit 1
-    fi
+             if kill -0 $pid 2> "$LOGDIR/stderr.log"
+             then kill -INT $pid 
 
-# Clean up our mess
-    rm $awkbot
-    rm $livedata
-done
+                 echo -n "Waiting for process to terminate..."
+             
+                 # Wait for the process to shut down by testing if it's
+                 # reachable once a second.  This is in lieu of using something
+                 # like waitpid, since the daemon won't be one of our child
+                 # processes.
+                 while kill -0 $pid 2> "$LOGDIR/stderr.log"
+                 do echo -n "."
+                    sleep 1
+                 done
+
+                 rm $pidfile
+                 echo
+            else echo "It appears $name has crashed, doing cleaup instead"
+                 $0 cleanup
+            fi
+
+        fi
+    ;;
+
+    'cleanup')
+        if [ -e $pidfile ]
+        then rm $pidfile
+        fi
+    ;;
+
+    'reload')
+        echo "Attempting to reload $name"
+        if kill -0 $pid 2> "$LOGDIR/stderr.log"
+        then kill -HUP $pid 
+             echo "Forcing reload of $name, this may take some time"
+        else echo "It appears that $name isn't running"
+        fi
+    ;;
+
+    *)
+        echo "Usage: $0 [ start | stop | cleanup | reload ]"
+        echo "  start   - Start the $name daemon"
+        echo "  stop    - Stop the $name daemon"
+        echo "  cleanup - Cleanup a after a dead $name daemon"
+        echo "  reload  - Perform a full reload of $name"
+    ;;
+esac

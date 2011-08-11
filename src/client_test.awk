@@ -1,7 +1,7 @@
 
 
 BEGIN {
-    kernel = "/tmp/tmp.iWNsajpzlD"
+    kernel = "/tmp/awkbot"
 }
 
 "init" == $1 {

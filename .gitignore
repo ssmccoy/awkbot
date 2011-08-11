@@ -1,0 +1,22 @@
+*.log
+*.log.*
+*.ipr
+*.iws
+*.iml
+.project
+.classpath
+.settings
+.metadata
+junit*.properties
+projectFilesBackup
+target
+.externalToolBuilders
+maven-eclipse.xml
+bin-groovy
+# OS X metadata file
+.DS_Store
+# Intellij IDEA plugin for JIRA
+atlassian-ide-plugin*
+*.db4
+test-output
+*.sw[op]
