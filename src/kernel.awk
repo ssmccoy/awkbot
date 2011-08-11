@@ -26,9 +26,15 @@ function mktemp (   tempfile,c) {
     return qx("mktemp")
 }
 
+# XXX 2011-08-10T21:53:16Z-0700 This is duplicate because kernel can't depend
+# on anything - find a solution to that.
+
+## Remove a file
+# filename: The file to remove
 function remove (filename) {
-    system("rm " filename)
+    system("exec rm " filename)
 }
+
 
 function mkfifo (   tempfile) {
     tempfile = mktemp()

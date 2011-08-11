@@ -7,7 +7,9 @@
 # -----------------------------------------------------------------------------
 
 #use mkfifo.awk
-#use tempfile
+#use tempfile.awk
+#use remove.awk
+#use log.awk
 
 BEGIN {
     connection = ""
@@ -18,16 +20,16 @@ BEGIN {
 # Send, because we have to know we're supposed to send, each event is truncated
 # by one argument.  Sorry.
 function client_send (component, message, a1,a2,a3,a4,a5,a6,a7,a8) {
+    if (connection == "") {
+        print "attempt to send before connection established" >> "/dev/stderr"
+    }
+
     print component, message, a1,a2,a3,a4,a5,a6,a7,a8 >> connection
     fflush(connection)
 }
 
-function remove (filename) {
-    system("exec rm " filename)
-}
-
 # Message the kernel that we need to send them a message
-function client_connect (listener) {
+function client_connect (stream) {
     connection = stream
 
     fifo = tempfile("client")
@@ -36,12 +38,13 @@ function client_connect (listener) {
 
     mkfifo(fifo)
 
-    print "connect", fifo >> listener
-
     # Cause the selector to start reading from our special fifo the other
     # kernel has been made aware of
     kernel_load("selector.awk", fifo)
     kernel_send(fifo, "select", this, fifo)
+
+    # Tell the remote listener to connect to this fifo we've selected.
+    print "connect", fifo >> connection
 }
 
 ## Register the client module to listen for an event on the other server.
