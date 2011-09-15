@@ -30,8 +30,6 @@ function client_send (component, message, a1,a2,a3,a4,a5,a6,a7,a8) {
 
 # Message the kernel that we need to send them a message
 function client_connect (stream) {
-    connection = stream
-
     fifo = tempfile("client")
 
     remove(fifo)
@@ -44,7 +42,10 @@ function client_connect (stream) {
     kernel_send(fifo, "select", this, fifo)
 
     # Tell the remote listener to connect to this fifo we've selected.
-    print "connect", fifo >> connection
+    print "connect", fifo >> stream
+    print "connect, " fifo >> "/dev/stderr"
+
+    connection = stream
 }
 
 ## Register the client module to listen for an event on the other server.
