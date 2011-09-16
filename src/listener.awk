@@ -57,14 +57,25 @@ function listener_read (file, input   ,argc,args,filename,i) {
         debug("new connection at %s", filename)
 
         kernel_load("connection.awk", filename)
-        kernel_send(filename, "__connect", filename)
+        #
+        # 2011-09-13T14:36:44Z-0700 TODO: Okay, this is all screwed up.  The
+        # listener creates a "connection" out of a fifo.  The client and the
+        # connection are listening on this connection — and then the connection
+        # module is relaying messages to this connection.  It makes no sense.
+        # What is needed is a very simple method where a client module can
+        # subscribe to events which are ultimately sent to it's fifo.  The
+        # client has a selector for the fifo, so nothing of this sort needs
+        # done here.  A placeholder process for each fifo *does* need created
+        # on the server side, but it needs to do nothing other than relay
+        # messages to the fifo and shutdown when requested.
+        # 
+        # kernel_send(filename, "__connect", filename)
     }
     else if (args[1] == "disconnect") {
-        # TODO DISCONNECTION 
-        # 2011-09-13T12:31:13Z-0700 How and why this is necessary is currently
-        # somewhat unclear.
-        #
-        # This code is a little bit of a mess.
+        # Simply force the kernel to send a fini 
+        filename = args[2]
+
+        kernel_send("kernel", "shutdown", filename)
     }
     else {
         # If it's a message intended for this kernel (i.e. not a connect
