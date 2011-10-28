@@ -46,7 +46,7 @@ case $1 in
              echo "to stop the process forcefully, but without proper cleanup"
 
              if kill -0 $pid 2> "$LOGDIR/stderr.log"
-             then kill -INT $pid 
+             then kill $pid 
 
                  echo -n "Waiting for process to terminate..."
              
