@@ -59,22 +59,22 @@ BEGIN {
 		   # other optimizations
 
     # "N" symbols are NOOPs on the register, but not on symbols or memory.
-    NPUT     = 03 # Put the given segment into the register (NOOP)
-    NCOPY    = 04 # Put the register value somewhere (NOOP)
-    PRINT    = 05 # Print the register value
-    JMP	     = 06 # Jump to the address in the register (nonzero)
-    DUB	     = 07 # Double the value of the register (add register to itself)
-    ZERO     = 08 # Subtract the register value from itself (creating zero)
-    RCAT     = 09 # Concatenate the register to itself
+    COPY     = 3 # Put the given segment into the register (NOOP)
+    NCOPY    = 4 # Put the register value somewhere (NOOP)
+    PRINT    = 5 # Print the register value
+    JMP	     = 6 # Jump to the address in the register (nonzero)
+    DUB	     = 7 # Double the value of the register (add register to itself)
+    ZERO     = 8 # Subtract the register value from itself (creating zero)
+    RCAT     = 9 # Concatenate the register value onto the given symbol
     RPUSH    = 10 # Push the register value onto the stack.
     RPOP     = 11 # Remove the value from the stack, placing it in the register.
 
     SUB	     = MEMORY + ZERO  # Subtract the value from the register value
     ADD	     = MEMORY + DUB   # Add the value of the memory
-    JMPIF    = MEMORY + JMP
-    READ     = MEMORY + NPUT  # Put the symbol value into the register.
+    JMPIF    = MEMORY + JMP   # Jump if the given value > zero
+    READ     = MEMORY + COPY  # Put the symbol value into the register.
     PUSH     = MEMORY + PUSH  # Push the symbol value on the stack
-    CAT	     = MEMORY + RCAT
+    CAT	     = MEMORY + RCAT  # Concatenate the given value onto the register
 
     # "D" symbols are dynamic operations
     DCOPY    = MEMORY + NCOPY # Careful, this puts the register value in a
@@ -83,12 +83,14 @@ BEGIN {
 
     LSUB     = SYMBOL + ZERO  # Subtract the symbol from the register
     LADD     = SYMBOL + DUB   # Add the symbol to the register
-    COPY     = SYMBOL + NCOPY # Put the register value into the given location
+#   COPY     = SYMBOL + NCOPY # Put the register value into the given location
     LJMPIF   = SYMBOL + JMP
-    LIT      = SYMBOL + NPUT  # Put the literal symbol into the register.
+    LIT      = SYMBOL + COPY  # Put the literal symbol into the register.
     LPUSH    = SYMBOL + PUSH  # Put the symbol onto the stack.
-    POP	     = SYMBOL + POP   # Remove 
+    POP	     = SYMBOL + POP   # Remove the value copying it to the given
+                              # location
     LCAT     = SYMBOL + RCAT
+    LPRINT   = SYMBOL + PRINT
 }
 
 ##
@@ -102,7 +104,8 @@ BEGIN {
 # Push and pop are special, they can NOT (yes, NOT) be implemented with
 # generic symbols, because they change the stack length.
 function vm_push (vm, val) {
-    vm[++vm["ops"]] = value
+    vm[++vm["ops"]] = val
+    print "push: " ord(substr(val, 1, 1))
 }
 
 function vm_pop (vm, sym) {
@@ -111,6 +114,7 @@ function vm_pop (vm, sym) {
 
 # Put a value into a symbol
 function vm_put (vm, sym, val) {
+    printf "%s: %s\n", sym, val
     vm[sym] = val
 }
 
@@ -131,6 +135,7 @@ function vm_mul (vm, sym, val) {
 }
 
 function vm_cat (vm, sym, val) {
+    printf "cat: %s %s\n", sym, vm[sym] val
     vm[sym] = vm[sym] val
 }
 
@@ -141,6 +146,7 @@ function vm_print (vm, val) {
 # This one is dicey, we move the cursor to the given value.
 function vm_jmp (vm, sym, val) {
     if (vm[sym] > 0) {
+        printf "jmp: %04d\n", val
 	vm["cursor"] = val
     }
 }
@@ -153,15 +159,14 @@ function vm_exit (vm, val) {
 }
 
 function vm_next (vm    ,c,reg,val,sym,op,arg) {
-    c   = vm["cursor"]
-    val = vm[++c]
+    val = vm[++vm["cursor"]]
 
     op  = ord(substr(val, 1, 1))
     arg = substr(val, 2)
 
-    val = vm["ram", arg]
+    printf "%04d: %02d, %s\n", vm["cursor"], op, arg
 
-    vm["cursor"] = c
+    val = vm["ram", arg]
 
     reg = vm["register"]
     sym = arg
@@ -179,40 +184,39 @@ function vm_next (vm    ,c,reg,val,sym,op,arg) {
     else {
 	val = reg
 	# op -= 0
+        # If the operations don't 
+        sym = "ram" SUBSEP sym
     }
 
-    if (op == PUSH) {
+    if (op == RPUSH) {
         vm_push(vm, val)
     }
-    else if (op == POP) {
-        vm_pop(vm, sym, val)
-    }
-    else if (op == NPUT) {
-        vm_put(vm, val)
+    else if (op == RPOP) {
+        vm_pop(vm, val)
     }
     else if (op == COPY) {
-        vm_copy(vm, arg)
+        vm_put(vm, sym, val)
     }
-    else if (op == JMP) {
-        vm_jmp(vm, val)
-    }
-    else if (op == JMPIF) {
-        vm_jmpif(vm, val)
-    }
-    else if (op == ADD) {
-        vm_add(vm, val)
-    }
-    else if (op == SUB) {
-        vm_sub(vm, val)
+    else if (op == NCOPY) {
+        vm_put(vm, sym, reg)
     }
     else if (op == PRINT) {
         vm_print(vm, val)
     }
-    else if (op == LIT) {
-        vm_lit(vm, arg)
+    else if (op == JMP) {
+        vm_jmp(vm, sym, val)
     }
-    else if (op == CAT) {
-        vm_cat(vm, val)
+    # These symbols are confusing because they're based on register, register
+    # operations.  It might have made more sense to start with MEMORY
+    # operations...
+    else if (op == DUB) {
+        vm_add(vm, sym, val)
+    }
+    else if (op == ZERO) {
+        vm_sub(vm, sym, val)
+    }
+    else if (op == RCAT) {
+        vm_cat(vm, sym, val)
     }
     else {
         printf "ERROR: Unknown operation \"%s\"\n", op >> "/dev/stderr"
@@ -236,6 +240,11 @@ BEGIN {
     vm_push(vm, chr(CAT) "m2")
     vm_push(vm, chr(COPY) "message")
     vm_push(vm, chr(PRINT) "message")
+
+    vm_push(vm, chr(LIT) 1)
+    vm_push(vm, chr(LJMPIF) (vm["ops"] + 1))
+    vm_push(vm, chr(LPRINT) "One")
+    vm_push(vm, chr(LPRINT) "Two")
 
     vm_run(vm)
 }
