@@ -49,17 +49,46 @@ function hex (d) {
 ##
 
 BEGIN {
-    PUSH    = 01 # Push a value onto the stack
-    POP     = 02 # Pop a value off the stack
-    READ    = 03 # Read a value from a location
-    COPY    = 04 # Copy a value into a location
-    JMP     = 05 # Jump to a given position in the stack
-    JMPIF   = 06 # Jump to a given position in the stack of the register > 0
-    ADD     = 07 # Add a value to the register
-    SUB     = 08 # Substract a value from the register
-    PRINT   = 09 # Print to standard output
-    LIT     = 10 # Copy the given input into the register
-    CAT     = 11 # Concatenate a value on the register
+		   # operations are split into 3 groups
+    REGISTER = 000 #  0   - 84 are "register source" (value comes from register)
+    SYMBOL   = 085 #  85  - 169 are "symbol source" (value IS symbol)
+    MEMORY   = 170 #  170 - 255 are "memory source" (value OF symbol)
+
+		   # This reduces the number of conditional branches by letting
+		   # LIT and READ be implemented by the same operation, among
+		   # other optimizations
+
+    # "N" symbols are NOOPs on the register, but not on symbols or memory.
+    NPUT     = 03 # Put the given segment into the register (NOOP)
+    NCOPY    = 04 # Put the register value somewhere (NOOP)
+    PRINT    = 05 # Print the register value
+    JMP	     = 06 # Jump to the address in the register (nonzero)
+    DUB	     = 07 # Double the value of the register (add register to itself)
+    ZERO     = 08 # Subtract the register value from itself (creating zero)
+    RCAT     = 09 # Concatenate the register to itself
+    RPUSH    = 10 # Push the register value onto the stack.
+    RPOP     = 11 # Remove the value from the stack, placing it in the register.
+
+    SUB	     = MEMORY + ZERO  # Subtract the value from the register value
+    ADD	     = MEMORY + DUB   # Add the value of the memory
+    JMPIF    = MEMORY + JMP
+    READ     = MEMORY + NPUT  # Put the symbol value into the register.
+    PUSH     = MEMORY + PUSH  # Push the symbol value on the stack
+    CAT	     = MEMORY + RCAT
+
+    # "D" symbols are dynamic operations
+    DCOPY    = MEMORY + NCOPY # Careful, this puts the register value in a
+			      # dynamic location 
+    DPRINT   = MEMORY + PRINT
+
+    LSUB     = SYMBOL + ZERO  # Subtract the symbol from the register
+    LADD     = SYMBOL + DUB   # Add the symbol to the register
+    COPY     = SYMBOL + NCOPY # Put the register value into the given location
+    LJMPIF   = SYMBOL + JMP
+    LIT      = SYMBOL + NPUT  # Put the literal symbol into the register.
+    LPUSH    = SYMBOL + PUSH  # Put the symbol onto the stack.
+    POP	     = SYMBOL + POP   # Remove 
+    LCAT     = SYMBOL + RCAT
 }
 
 ##
@@ -70,53 +99,60 @@ BEGIN {
 # "ram", k - memory
 # "cursor" - cursor (stack pointer)
 
-function vm_push (vm, value) {
+# Push and pop are special, they can NOT (yes, NOT) be implemented with
+# generic symbols, because they change the stack length.
+function vm_push (vm, val) {
     vm[++vm["ops"]] = value
 }
 
-function vm_pop (vm, arg) {
+function vm_pop (vm, sym) {
     vm["ram", arg] = vm[vm["ops"]--]
 }
 
-function vm_read (vm, val) {
-    vm["register"] = val
+# Put a value into a symbol
+function vm_put (vm, sym, val) {
+    vm[sym] = val
 }
 
-function vm_copy (vm, arg) {
-    vm["ram", arg] = vm["register"]
+function vm_add (vm, sym, val) {
+    vm[sym] += val
 }
 
-function vm_jmp (vm, val) {
-    vm["cursor"] = val
+function vm_sub (vm, sym, val) {
+    vm[sym] -= val
 }
 
-function vm_jmpif (vm, val) {
-    if (vm["register"] > 0) {
-        vm["cursor"] = val
-    }
+function vm_div (vm, sym, val) {
+    vm[sym] /= val
 }
 
-function vm_add (vm, val) {
-    vm["register"] += val
+function vm_mul (vm, sym, val) {
+    vm[sym] *= val
 }
 
-function vm_sub (vm, val) {
-    vm["register"] -= val
+function vm_cat (vm, sym, val) {
+    vm[sym] = vm[sym] val
 }
 
 function vm_print (vm, val) {
     print val
 }
 
-function vm_lit (vm, arg) {
-    vm["register"] = arg
+# This one is dicey, we move the cursor to the given value.
+function vm_jmp (vm, sym, val) {
+    if (vm[sym] > 0) {
+	vm["cursor"] = val
+    }
 }
 
-function vm_cat (vm, val) {
-    vm["register"] = vm["register"] val
+# Push the stack pointer to the end of the stack so we exit.
+# Set the return value.
+function vm_exit (vm, val) {
+    vm["cursor"] = vm["ops"]
+    vm["return"] = val
 }
 
-function vm_next (vm    ,c,val,op,arg) {
+function vm_next (vm    ,c,reg,val,sym,op,arg) {
     c   = vm["cursor"]
     val = vm[++c]
 
@@ -127,14 +163,32 @@ function vm_next (vm    ,c,val,op,arg) {
 
     vm["cursor"] = c
 
+    reg = vm["register"]
+    sym = arg
+
+    if (op > MEMORY) {
+	val = vm["ram", sym]
+	op -= MEMORY
+	sym = "register"
+    }
+    else if (op > SYMBOL) {
+	val = sym
+	op -= SYMBOL
+	sym = "register"
+    }
+    else {
+	val = reg
+	# op -= 0
+    }
+
     if (op == PUSH) {
         vm_push(vm, val)
     }
     else if (op == POP) {
-        vm_pop(vm, arg)
+        vm_pop(vm, sym, val)
     }
-    else if (op == READ) {
-        vm_read(vm, val)
+    else if (op == NPUT) {
+        vm_put(vm, val)
     }
     else if (op == COPY) {
         vm_copy(vm, arg)
