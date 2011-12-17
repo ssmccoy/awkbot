@@ -37,33 +37,29 @@
 # loop:
 #  - array: identifier
 #  - identifier: identifier
-#  - op: ptr
+#  - branch: ptr
 #
 # set:
 #  - identifier: identifier
 #  - value: ptr
 #
 # val:
-#  - value: ptr
+#  - token: identifier
 #
 # when:
 #  - expression: ptr
 #  - op: ptr
 #
 # expression:
-#  - expression_type: [ "un" | "cmp" ]
-#
-# un:
-#  - value: ptr
+#  - expression_type: [ cmp | value | literal ]
 #
 # cmp:
 #  - cmp: comparison
-#  - lhs: value ptr
-#  - rhs: value ptr
+#  - lhs: [ value | literal ]
+#  - rhs: [ value | literal ]
 #
-# value:
-#  - lit: <bool>
-#  - token: identifier | literal
+# literal:
+#  - token: string
 #
 # Bytecode generation will require recursion.
 #
@@ -75,31 +71,49 @@
 #   }
 # }
 
-function node (ir, prev, type   ,node) {
+function node (ir, type   ,node) {
     node = ++ir["node"]
-
-    if (prev) {
-        ir[prev, "next"] = node
-    }
 
     ir[node, "type"] = type
 
     return node
 }
 
-function node_loop (ir, array, identifier   ,current) {
-    current = ir["node"]
+function node_next (ir, node, ptr) {
+    ir[node, "next"] = ptr
+}
 
-    node = node(ir, current, "loop")
+function node_loop (ir, array, identifier, ptr   ,node) {
+    node = node(ir, "loop")
 
     ir[node, "array"]      = array
     ir[node, "identifier"] = identifier
+    ir[node, "op"]         = ptr
 
     return node
 }
 
-function node_val (ir, identifier    ,current) {
-    current = ir["node"]
+function node_value (ir, token ,node) {
+    node = node(ir, "value")
+    
+    ir[node, "token"] = token
 
-    node = node(ir, current, loop)
+    return node
 }
+
+function node_literal (ir, token    ,node) {
+    node = node(ir, "literal")
+
+    ir[node, "token"] = token
+}
+
+function node_val (ir, identifier    ,node) {
+    node = node(ir, "val")
+
+    ir[node, "value"]
+}
+
+# There are going to be fairly big problems with this parsing engine.
+block = parse_block()
+node = node_loop(ir, array, identifier, block)
+node_next(ir, node, cont_parsing...?)
