@@ -1,0 +1,19 @@
+#!/bin/sh
+# A wrapper which executes runawk.
+
+if [ -z $RUNAWK_HOME ]
+then
+    bindir=`dirname $0`
+    RUNAWK_HOME=`dirname $bindir`
+fi
+
+if [ -z $AWKPATH ] || [ $# -lt 1 ]
+then
+    echo <<USAGE
+    Usage: $0 <awk command line>
+
+    For $0 to work properly, a GNU compatible AWKPATH must be set.
+USAGE
+fi
+
+echo BUILD_COMMAND=1 awk -f $RUNAWK_HOME/src/runawk.awk "$@"
