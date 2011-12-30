@@ -28,6 +28,7 @@ BEGIN {
     MUL   = 11 # Multiply
     DIV   = 12 # Divide 
     MOD   = 13 # Modulo
+    STOP  = 14 # Pause, or terminate, the program
 }
 
 ##
@@ -106,6 +107,11 @@ function vm_exit (vm, val) {
     vm["return"] = val
 }
 
+##
+# Execute the next operation.
+#
+# vm: The virtual machine instance.
+# returns true if the vm is expected to continue, false otherwise
 function vm_next (vm    ,c,reg,val,sym,op,arg) {
     val = vm[vm["cursor"]++]
 
@@ -152,16 +158,28 @@ function vm_next (vm    ,c,reg,val,sym,op,arg) {
     else if (op == MOD) {
         vm_mod(vm, sym, val)
     }
+    else if (op == STOP) {
+        return sym
+    }
     else {
         printf "ERROR: Unknown operation \"%s\"\n", op >> "/dev/stderr"
         exit 1
     }
+
+    return 1
 }
 
-function vm_run (vm) {
+##
+# Execute the virtual machine until a break or the end of the program.
+#
+# vm: The vm to execute.
+function vm_run (vm     ,r) {
     while (vm["ops"] >= vm["cursor"]) {
-        vm_next(vm)
+        if ((r = vm_next(vm)) != 0)
+            return r
     }
+
+    return r
 }
 
 # Quick test program...
