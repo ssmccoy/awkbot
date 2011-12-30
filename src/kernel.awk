@@ -83,6 +83,8 @@ function dependencies (filename     ,loaded,input,df,depends) {
         }
     }
 
+    close(filename)
+
     return depends
 }
 
