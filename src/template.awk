@@ -6,6 +6,8 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
+#use bitwise.awk
+
 # Template language (in some form of EBNF)
 # body       = string | "{" space statement space "}" | body
 # statement  = get | loop | set | when | end
@@ -327,7 +329,19 @@ function parse (ir, string  ,program) {
     return program
 }
 
-function compile (ir) {
+function compile (ir, ops) {
+    # The following arrays are for processing:
+    # tags:
+    #   The tags appear in sequential order.  They represent the locations of
+    #   addresses which must be replaced.
+    # targets:
+    #   Each tag has a corresponding target.  The target marks the address that
+    #   the tag must jump to.  It's added (as the current op) once the end of a
+    #   given block is reached.
+    # ids:
+    #   The ids represent addresses in RAM.  They are a sequential array of
+    #   identifier names, the key being their address.  The identifier names
+    #   are written to a table in slot "0", unseparated.
     # Compile the ir into byte code...
 
     # This will take two passes, first, we need to build an op tree with empty
