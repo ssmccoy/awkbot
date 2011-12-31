@@ -63,7 +63,7 @@ function bit_or (a, b, r, i, ia, ib) {
         ia = int(a / c) % 2
         ib = int(b / c) % 2
 
-        r += (ia || ib) * 2^i
+        r += (ia || ib) * c
     }
 
     return r
