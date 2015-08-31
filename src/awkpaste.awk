@@ -40,6 +40,13 @@ BEGIN {
 	content  = query["content"]
 	language = query["language"]
 
+        if (index(content, "http://") || index(content, "https://")) {
+            print "Content-Type: text/plain"
+            print ORS
+            print "This paste appears to be spam, if it's not message tag."
+            exit
+        }
+
         errmsg  = ""
 
         if (length(nick) == 0) {
