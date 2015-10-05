@@ -107,7 +107,7 @@ function awkbot_privmsg (recipient, nick, host, message \
 	prefix  = ""
     }
     else {
-        m       = match(message, /:| /)
+        m       = match(message, /[[:punct:]]|[[:space:]]/)
         address = substr(message, 1, m - 1)
         message = trim(substr(message, m + 1))
 	target  = recipient
