@@ -77,8 +77,13 @@ function awkbot_connect (   server,port,nick,user,name) {
     awkbot = nick
 }
 
-function awkbot_connected () {
-    kernel_send("irc", "join", "#awkbot-test")
+function awkbot_connected ( channel) {
+    channel = config("irc.channel")
+
+    if (channel) {
+        kernel_send("irc", "join", config("irc.channel"))
+    }
+
     kernel_send("database", "connected", 1)
 }
 
