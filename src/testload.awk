@@ -1,4 +1,6 @@
 
+#use module.awk
+
 BEGIN { instances = 20 }
 
 "init" == $1 {

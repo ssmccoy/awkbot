@@ -10,6 +10,7 @@
 #import <mysql.awk>
 
 # Also support module loading...
+#use module.awk
 #use config.awk
 #use mysql.awk
 #use log.awk

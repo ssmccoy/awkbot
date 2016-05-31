@@ -11,6 +11,7 @@
 # from the kernel.  All subscriptions by the client will be listed as this
 # module.
 
+#use module.awk
 #use log.awk
 
 BEGIN {

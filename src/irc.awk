@@ -6,6 +6,7 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
+#use module.awk
 #use log.awk
 
 ## Load the socket module, but do not connect to anything.
@@ -48,11 +49,14 @@ function irc_disconnect () {
     socket = ""
 }
 
+function irc_nick (nickname) {
+    kernel_send(socket, "write", "NICK " nickname)
+}
+
 ## Connect to the IRC server
 function irc_server (host, port, nickname, username, realname) {
-    kernel_send("log", "debug", this, \
-                "irc->server(\"%s\",%s,\"%s\",\"%s\",\"%s\")", \
-                host, port, nickname, username, realname)
+    debug( "irc->server(\"%s\",%s,\"%s\",\"%s\",\"%s\")", \
+           host, port, nickname, username, realname)
 
     irc["nickname"] = nickname
     irc["username"] = username
@@ -60,7 +64,7 @@ function irc_server (host, port, nickname, username, realname) {
 
     kernel_send(socket, "connect", host, port)
 
-    kernel_send(socket, "write", "NICK " nickname)
+    irc_nick(nickname)
     kernel_send(socket, "write", "USER " username " a a :" realname)
     kernel_listen(socket, "read", "input")
     kernel_listen(socket, "disconnected")
@@ -68,18 +72,20 @@ function irc_server (host, port, nickname, username, realname) {
 
 ## Join the given channel
 function irc_join (channel) {
-    kernel_send("log", "debug", this, "irc->join(\"%s\")", channel)
+    debug("irc->join(\"%s\")", channel)
 
     kernel_send(socket, "write", sprintf("JOIN %s", channel))
 }
 
 ## Private message the given target
 function irc_msg (target, message) {
+    debug("/msg %s %s", target, message)
     kernel_send(socket, "write", sprintf("PRIVMSG %s :%s", target, message))
 }
 
 ## Send a notice
 function irc_notice (target, message) {
+    debug("/notice %s %s", target, message)
     kernel_send(socket, "write", sprintf("NOTICE %s :%s", target, message))
 }
 
@@ -100,10 +106,13 @@ function ctcp (payload) {
 }
 
 function irc_ctcp_reply (nick, type, param) {
+    debug("/reply %s %s", nick, request)
+
     irc_notice(nick, ctcp(sprintf("%s %s", toupper(type), param)))
 }
 
 function irc_ctcp (nick, request) {
+    debug("/ctcp %s %s", nick, request)
     irc_msg(nick, ctcp(toupper(request)))
 }
 
@@ -185,7 +194,7 @@ function irc_parse_message (payload, fields     ,b,nick,host,type,message) {
 function irc_parse_input (payload ,fields) {
     split(payload, fields, / /)
 
-    kernel_send("log", "debug", this, "irc->input(\"%s\")", fields[2])
+    debug("irc->input(\"%s\")", fields[2])
 
     if (fields[1] == "PING") {
         kernel_send(socket, "write", sprintf("PONG %s", fields[2]))
@@ -195,6 +204,9 @@ function irc_parse_input (payload ,fields) {
     }
     if (fields[2] == "001") {
         kernel_publish("connected")
+    }
+    if (fields[2] == "433") {
+        kernel_publish("nickname")
     }
     if (fields[2] == "PRIVMSG") {
         irc_parse_message(payload, fields)
@@ -209,6 +221,7 @@ function irc_parse_input (payload ,fields) {
 
 "init"         == $1 { irc_init()                 }
 "server"       == $1 { irc_server($2,$3,$4,$5,$6) }
+"nick"         == $1 { irc_nick($2)               }
 "join"         == $1 { irc_join($2)               }
 "msg"          == $1 { irc_msg($2,$3)             }
 "input"        == $1 { irc_parse_input($2)        }

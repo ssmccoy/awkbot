@@ -6,6 +6,7 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
+#use module.awk
 #use mkfifo.awk
 #use tempfile.awk
 #use remove.awk

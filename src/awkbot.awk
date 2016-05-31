@@ -6,6 +6,7 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy 
 # -----------------------------------------------------------------------------
 
+#use module.awk
 #use assert.awk
 #use config.awk
 #use trim.awk
@@ -25,6 +26,7 @@ BEGIN {
 function awkbot_init (stream,	logfile,loglevel,sockname) {
     # Set up the logger first, since everything else will try and write to it.
     kernel_load("logger.awk", "log")
+    kernel_load("status.awk", "status")
 
     logfile  = config("logfile")
     loglevel = config("loglevel")
@@ -130,6 +132,9 @@ function awkbot_privmsg (recipient, nick, host, message \
         else {
 	    kernel_send("database", action, m)
         }
+
+        # Karma must exit early because of the weird matching.
+        return
     }
 
     # The user wasn't addressing us, ignored.
@@ -202,6 +207,16 @@ function awkbot_error () {
     awkbot_connect()
 }
 
+## Try an alternative nickname.
+# Try the backup nickname, and create a new backup incase this doesn't work.
+function awkbot_nickname (  altnick) {
+    altnick = config("irc.altnick")
+
+    kernel_send("irc", "nick", altnick)
+
+    config("irc.altnick", altnick "-")
+}
+
 # -----------------------------------------------------------------------------
 # The dispatch table
 
@@ -211,4 +226,5 @@ function awkbot_error () {
 "ctcp_version"  == $1 { awkbot_ctcp_version($2,$3,$4) }
 "send_response" == $1 { awkbot_send_result($2,$3,$4)  }
 "error"         == $1 { awkbot_error()                }
+"nickname"      == $1 { awkbot_nickname()             }
 

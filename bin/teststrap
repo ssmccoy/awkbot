@@ -5,12 +5,16 @@ total=0
 
 for file in t/*.awk
 do 
+    # TODO: Remove the use of cpp here as soon as possible.
     total=`expr $total + 1`
     tmpfile=`tempfile`
+
     # Strip comments, stolen from perl!
     cpp -I src -I /usr/share/awk $file 2> /dev/null > $tmpfile
+
     echo "executing test $file"
-    awk -f $tmpfile
+    awk -f "src/kernel.awk" $tmpfile
+
     if [ $? = 1 ]
     then 
         echo "$file failed"

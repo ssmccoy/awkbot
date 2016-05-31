@@ -7,6 +7,7 @@
 # -----------------------------------------------------------------------------
 # This module creates a named fifo, and treats it as a psuedo-socket listener.
 
+#use module.awk
 #use mkfifo.awk
 #use exists.awk
 #use remove.awk

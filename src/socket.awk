@@ -6,11 +6,14 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
+#use module.awk
+#use log.awk
+#use mktemp.awk
+#use mkfifo.awk
+
 # Determine whether netcat or telnet are appropriate.  Favor netcat, and do
 # nothing if the user specified one instead.
 BEGIN {
-    tempfile_command = "mktemp socket.XXXXX"
-
     if (!socket_catalyst) {
         "which nc"     | getline socket_catalyst
         close("which nc")
@@ -26,13 +29,9 @@ BEGIN {
 # host: The hostname to connect to.
 # port: The port to connect to.
 function socket_connect (host, port) {
-    kernel_send("log", "debug", this, "socket->connect(\"%s\", %s)", host, port)
+    debug("socket->connect(\"%s\", %s)", host, port)
 
-    tempfile_command | getline fifo
-    close(tempfile_command)
-
-    system("rm " fifo)
-    system("mkfifo " fifo)
+    fifo = mkfifo(mktemp("socket.XXXXXX"))
 
     # Have the kernel load the selector module, under the generated name of the
     # fifo.
@@ -50,7 +49,7 @@ function socket_connect (host, port) {
 # sockname: The name of the selector which sent the read.
 # input: The line which was read.
 function socket_read (sockname, input) {
-    kernel_send("log", "debug", this, "socket->read(\"%s\")", sockname)
+    #kernel_send("log", "debug", this, "socket->read(\"%s\")", sockname)
 
     # Publish the input event to anyone listening...(?! should I be doing
     # this!?)  Maybe the listener should be a direct connection between the two
@@ -62,7 +61,7 @@ function socket_read (sockname, input) {
 
 ## Write a string to the socket pipe
 function socket_write (output) {
-    kernel_send("log", "debug", this, "socket->write(\"%s\")", output)
+    #kernel_send("log", "debug", this, "socket->write(\"%s\")", output)
 
     print output | socket
 }
@@ -71,7 +70,7 @@ function socket_write (output) {
 # usually work without intervention, and a "disconnect" event will be received
 # some time later as a result.
 function socket_close () {
-    kernel_send("log", "debug", this, "socket->close()")
+    #kernel_send("log", "debug", this, "socket->close()")
     close(socket)
     socket = ""
 }
@@ -79,7 +78,7 @@ function socket_close () {
 # We were disconnected, publish the disconnect event and then shut ourselves
 # down.
 function socket_disconnect () {
-    kernel_send("log", "debug", this, "socket->disconnect()")
+    #kernel_send("log", "debug", this, "socket->disconnect()")
 
     system("rm " fifo)
 

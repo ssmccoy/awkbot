@@ -9,6 +9,8 @@
 # alive in a local loop.  It should terminate cleanly once an EOF is seen from
 # the stream it's selecting.
 
+#use module.awk
+
 BEGIN { running = 0 }
 
 # Once this message is recieved, the selector will recieve no more messages.

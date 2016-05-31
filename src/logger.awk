@@ -1,4 +1,6 @@
 
+#use module.awk
+
 BEGIN {
     ERROR   = 1
     WARNING = 2

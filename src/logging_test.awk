@@ -1,4 +1,6 @@
 
+#use module.awk
+
 "init" == $1 {
     print "module:init" >> "/dev/stderr"
 

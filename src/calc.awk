@@ -9,8 +9,8 @@
 function next_token(s, t) {
     sub(/^[[:space:]]*/,"", s[0])
     if (match(s[0], /^[()]/) || 
-	match(s[0], /^[-+]?[0-9]+(\.[0-9]+)*/)  ||
-	match(s[0], /^[-+*/]/)) {
+	match(s[0], /^[-+]?[0-9]+(\.[0-9]+)*/) ||
+	match(s[0], /^[-+*\/]/)) {
 	t = substr(s[0], RSTART, RLENGTH)
 	s[0] = substr(s[0], RLENGTH+1)
 	return t
@@ -31,7 +31,7 @@ function s_y( input, postfixed       ,len, stack, head, op, s, token, pre) {
     while (token = next_token(s)) {
 	if (token ~ /^[-+]?[0-9]+(\.[0-9]+)*/) {
 	    postfixed[++len] = token
-	} else if (token ~ /[-+/*]/) {
+	} else if (token ~ /[-+\/*]/) {
 	    while ((head > 0) && (pre[token] <= pre[stack[head]])) {
 		postfixed[++len] = stack[head]
 		head-=1

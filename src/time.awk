@@ -1,4 +1,4 @@
-# Test how the kernel handles a million messages in a row (sequental)
+# A simple time module
 # -----------------------------------------------------------------------------
 # "THE BEER-WARE LICENSE" (Revision 43) borrowed from FreeBSD's jail.c:
 # <tag@cpan.org> wrote this file.  As long as you retain this notice you
@@ -6,23 +6,14 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
-#use module.awk
-
-BEGIN { target = 1000000 }
-
-"init" == $1 {
-    kernel_send(this, "test", i)
+BEGIN {
+    TIME_PRG = "date '+%s'"
 }
 
-"test" == $1 {
-    if ($2 == target) {
-        kernel_shutdown()
-    }
-    else {
-        kernel_send(this, "test", $2 + 1)
-    }
-}
+function time (   r) {
+    TIMEPRG | getline r
 
-"fini" == $1 {
-    kernel_send("testload.awk", "completed")
+    close(TIMEPRG)
+
+    return r
 }

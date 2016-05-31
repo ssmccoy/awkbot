@@ -8,7 +8,7 @@ AWKBOT_HOME="`dirname $BIN`"
 LOGDIR="$AWKBOT_HOME/logs"
 
 # Bootstrap Settings
-command="awk -f $AWKBOT_HOME/src/kernel.awk awkbot.awk"
+command="awk -f $AWKBOT_HOME/src/loader.awk -v program=kernel.awk awkbot.awk"
 name=`basename $0`
 
 if [ "" = "$AWKPATH" ]
@@ -29,6 +29,10 @@ else pid=0
 fi
 
 case $1 in 
+    'debug')
+        echo AWKPATH="$AWKPATH" $command
+    ;;
+
     'start')
         if [ $pid -eq 0 ]
         then $command &
@@ -36,6 +40,10 @@ case $1 in
         else echo "It appears $name is already running (pid $pid)"
              echo "Please run \"$0 cleanup\" if this is not true"
         fi
+    ;;
+
+    'run')
+        $command
     ;;
 
     'stop')

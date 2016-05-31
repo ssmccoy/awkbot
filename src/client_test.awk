@@ -1,4 +1,5 @@
 
+#use module.awk
 #use log.awk
 
 BEGIN {

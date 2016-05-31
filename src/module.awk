@@ -54,6 +54,10 @@ function kernel_send (component, operation, a1,a2,a3,a4,a5,a6,a7,a8,a9,o,f) {
     gsub("\n",   "\\0x0A", f)
     gsub(SUBSEP, "\\0x01", f)
 
+    if (!_k_pipename) {
+        printf "%s has no init", this >> "/dev/stderr"
+    }
+
     print component, operation, a1,a2,a3,a4,a5,a6,a7,a8,a9,o,f >> _k_pipename
     fflush(_k_pipename)
 }

@@ -12,7 +12,7 @@ CREATE TABLE `karma` (
   `nick` varchar(100) NOT NULL default '',
   `karma` int(11) default NULL,
   PRIMARY KEY  (`nick`)
-) TYPE=MyISAM;
+) ENGINE=MyISAM;
 
 --
 -- Dumping data for table `karma`
@@ -30,7 +30,7 @@ INSERT INTO `karma` VALUES ('paul',11);
 CREATE TABLE `qna` (
   `question` varchar(100) default NULL,
   `answer` varchar(255) default NULL
-) TYPE=MyISAM;
+) ENGINE=MyISAM;
 
 --
 -- Dumping data for table `qna`
@@ -51,7 +51,7 @@ CREATE TABLE `paste` (
     subject  varchar(80) not null,
     language varchar(15) not null default 'awk',
     content  text
-) TYPE=MyISAM;
+) ENGINE=MyISAM;
 
 CREATE TABLE `status` (
     `running` boolean not null default false,

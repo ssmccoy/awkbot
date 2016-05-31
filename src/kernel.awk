@@ -6,90 +6,16 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
+#use loader.awk
+#use mktemp.awk
+#use mkfifo.awk
+
 BEGIN {
     pathc = split(ENVIRON["AWKPATH"], pathv, /:/)
 }
 
-function qx (command	,c,input,result) {
-    c = "exec " command
-
-    while ((c | getline input) == 1) {
-	result = result input
-    }
-
-    close(c)
-
-    return result
-}
-
-function mktemp (   tempfile,c) {
-    return qx("mktemp")
-}
-
-# XXX 2011-08-10T21:53:16Z-0700 This is duplicate because kernel can't depend
-# on anything - find a solution to that.
-
-## Remove a file
-# filename: The file to remove
-function remove (filename) {
-    system("exec rm " filename)
-}
-
-
-function mkfifo (   tempfile) {
-    tempfile = mktemp()
-    remove(tempfile)
-    system("mkfifo " tempfile)
-    return tempfile
-}
-
-function readable (file     ,result,x) {
-    result = getline x < file
-    close(file)
-
-    return result >= 0
-}
-
-function find (filename     ,r,i) {
-    for (i = 1; i <= pathc; i++) {
-        r = pathv[i] "/" filename
-
-        if (readable(r)) {
-            return r
-        }
-    }
-
-    print "error: unable to find file " filename >> "/dev/stderr"
-    exit 1
-}
-
-## Parse a file and determine all of it's dependencies, and theirs,
-# recursively.
-function dependencies (filename     ,loaded,input,df,depends) {
-    loaded[filename] = 1
-
-    depends = ""
-
-    while ((getline input < filename) > 0) {
-        if (input ~ /^#use/) {
-            split(input, words, /[\t ][\t ]*/)
-            print "loading module " words[2] >> "/dev/stderr"
-            df = find(words[2])
-
-            if (loaded[df] != 1) {
-                depends = depends " -f " df
-                depends = depends dependencies(df, loaded)
-            }
-        }
-    }
-
-    close(filename)
-
-    return depends
-}
-
 function kernel_message (module, message, a1,a2,a3,a4,a5,a6,a7,a8,a9) {
-    printf "kernel->message(\"%s\", \"%s\")\n", module, message >> "/dev/stderr"
+    #printf "kernel->message(\"%s\", \"%s\")\n", module, message >> "/dev/stderr"
 
     print message,a1,a2,a3,a4,a5,a6,a7,a8,a9 | kernel["process", module]
 
@@ -100,18 +26,7 @@ function kernel_message (module, message, a1,a2,a3,a4,a5,a6,a7,a8,a9) {
 
 ## Load a module.
 function kernel_load (source, name  ,depends,input,words,filename,loaded) {
-    filename = find(source)
-
-    if ("" == filename) {
-        print "unable to load " name ": " source " not found" >> "/dev/stderr"
-        return
-    }
-
-    depends = dependencies(filename, loaded)
-
-    kernel["process", name] = \
-	  sprintf("exec %s -f module.awk %s -f %s %s", \
-                  awk, depends, source, name)
+    kernel["process", name] = loader_command(source) " " name
 
     print "starting module: " kernel["process", name] >> "/dev/stderr"
 
