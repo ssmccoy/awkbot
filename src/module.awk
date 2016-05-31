@@ -10,49 +10,71 @@ function kernel_send (component, operation, a1,a2,a3,a4,a5,a6,a7,a8,a9,o,f) {
     # There is no reasonable way to do this iteratively.  The simplicity of awk
     # is occasionally paramount.
     # This is ESCAPE, see UNESCAPE for the converse.
-    gsub("\\",   "\\0x5C", a1)
-    gsub("\n",   "\\0x0A", a1)
-    gsub(SUBSEP, "\\0x01", a1)
+    if (a1) {
+        gsub("\\",   "\\0x5C", a1)
+        gsub("\n",   "\\0x0A", a1)
+        gsub(SUBSEP, "\\0x01", a1)
+    }
 
-    gsub("\\",   "\\0x5C", a2)
-    gsub("\n",   "\\0x0A", a2)
-    gsub(SUBSEP, "\\0x01", a2)
+    if (a2) {
+        gsub("\\",   "\\0x5C", a2)
+        gsub("\n",   "\\0x0A", a2)
+        gsub(SUBSEP, "\\0x01", a2)
+    }
 
-    gsub("\\",   "\\0x5C", a3)
-    gsub("\n",   "\\0x0A", a3)
-    gsub(SUBSEP, "\\0x01", a3)
+    if (a3) {
+        gsub("\\",   "\\0x5C", a3)
+        gsub("\n",   "\\0x0A", a3)
+        gsub(SUBSEP, "\\0x01", a3)
+    }
 
-    gsub("\\",   "\\0x5C", a4)
-    gsub("\n",   "\\0x0A", a4)
-    gsub(SUBSEP, "\\0x01", a4)
+    if (a4) {
+        gsub("\\",   "\\0x5C", a4)
+        gsub("\n",   "\\0x0A", a4)
+        gsub(SUBSEP, "\\0x01", a4)
+    }
 
-    gsub("\\",   "\\0x5C", a5)
-    gsub("\n",   "\\0x0A", a5)
-    gsub(SUBSEP, "\\0x01", a5)
+    if (a5) {
+        gsub("\\",   "\\0x5C", a5)
+        gsub("\n",   "\\0x0A", a5)
+        gsub(SUBSEP, "\\0x01", a5)
+    }
 
-    gsub("\\",   "\\0x5C", a6)
-    gsub("\n",   "\\0x0A", a6)
-    gsub(SUBSEP, "\\0x01", a6)
+    if (a6) {
+        gsub("\\",   "\\0x5C", a6)
+        gsub("\n",   "\\0x0A", a6)
+        gsub(SUBSEP, "\\0x01", a6)
+    }
 
-    gsub("\\",   "\\0x5C", a7)
-    gsub("\n",   "\\0x0A", a7)
-    gsub(SUBSEP, "\\0x01", a7)
+    if (a7) {
+        gsub("\\",   "\\0x5C", a7)
+        gsub("\n",   "\\0x0A", a7)
+        gsub(SUBSEP, "\\0x01", a7)
+    }
 
-    gsub("\\",   "\\0x5C", a8)
-    gsub("\n",   "\\0x0A", a8)
-    gsub(SUBSEP, "\\0x01", a8)
+    if (a8) {
+        gsub("\\",   "\\0x5C", a8)
+        gsub("\n",   "\\0x0A", a8)
+        gsub(SUBSEP, "\\0x01", a8)
+    }
 
-    gsub("\\",   "\\0x5C", a9)
-    gsub("\n",   "\\0x0A", a9)
-    gsub(SUBSEP, "\\0x01", a9)
+    if (a9) {
+        gsub("\\",   "\\0x5C", a9)
+        gsub("\n",   "\\0x0A", a9)
+        gsub(SUBSEP, "\\0x01", a9)
+    }
 
-    gsub("\\",   "\\0x5C", o)
-    gsub("\n",   "\\0x0A", o)
-    gsub(SUBSEP, "\\0x01", o)
+    if (o) {
+        gsub("\\",   "\\0x5C", o)
+        gsub("\n",   "\\0x0A", o)
+        gsub(SUBSEP, "\\0x01", o)
+    }
 
-    gsub("\\",   "\\0x5C", f)
-    gsub("\n",   "\\0x0A", f)
-    gsub(SUBSEP, "\\0x01", f)
+    if (f) {
+        gsub("\\",   "\\0x5C", f)
+        gsub("\n",   "\\0x0A", f)
+        gsub(SUBSEP, "\\0x01", f)
+    }
 
     if (!_k_pipename) {
         printf "%s has no init", this >> "/dev/stderr"
