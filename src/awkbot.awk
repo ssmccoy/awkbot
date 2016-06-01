@@ -41,10 +41,12 @@ function awkbot_init (stream,	logfile,loglevel,sockname) {
 
     kernel_load(config("database"), "database")
 
-    kernel_listen("database", "uptime", "send_response")
     kernel_listen("database", "info",   "send_response")
     kernel_listen("database", "karma",  "send_response")
     kernel_listen("database", "answer", "send_response")
+
+    kernel_load("uptime.awk", "uptime")
+    kernel_listen("uptime",   "uptime", "send_response")
 
     kernel_send("database", "running", 1)
     kernel_send("database", "livefeed", stream)
@@ -146,7 +148,7 @@ function awkbot_privmsg (recipient, nick, host, message \
 
     # These first three should be generalized
     if (action == "uptime") {
-	kernel_send("database", "uptime", target, prefix)
+        kernel_send("uptime", "uptime", target, prefix);
     }
     else if (action == "info") {
 	kernel_send("database", "info", target, prefix, terms[2])
@@ -220,11 +222,11 @@ function awkbot_nickname (  altnick) {
 # -----------------------------------------------------------------------------
 # The dispatch table
 
-"init"          == $1 { awkbot_init($2)               }
-"connected"     == $1 { awkbot_connected()            }
-"privmsg"       == $1 { awkbot_privmsg($2,$3,$4,$5)   }
-"ctcp_version"  == $1 { awkbot_ctcp_version($2,$3,$4) }
-"send_response" == $1 { awkbot_send_result($2,$3,$4)  }
-"error"         == $1 { awkbot_error()                }
-"nickname"      == $1 { awkbot_nickname()             }
+ "init"          == $1 { awkbot_init($2)               }
+ "connected"     == $1 { awkbot_connected()            }
+ "privmsg"       == $1 { awkbot_privmsg($2,$3,$4,$5)   }
+ "ctcp_version"  == $1 { awkbot_ctcp_version($2,$3,$4) }
+ "send_response" == $1 { awkbot_send_result($2,$3,$4)  }
+ "error"         == $1 { awkbot_error()                }
+ "nickname"      == $1 { awkbot_nickname()             }
 

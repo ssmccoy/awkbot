@@ -163,19 +163,6 @@ function awkbot_db_paste_last (     result,row,rv) {
     return result
 }
 
-function awkbot_db_uptime (     result,row,rv) {
-    rv = mysql_query("SELECT TIMEDIFF(CURRENT_TIMESTAMP, started)" \
-        "AS uptime FROM status");
-
-    if (mysql_fetch_assoc(rv, row)) {
-        result = row["uptime"]
-    }
-
-    mysql_finish(rv)
-
-    return result
-}
-
 # -----------------------------------------------------------------------------
 # Modularization - This is a little more than a dispatch table, the following
 # ports an unmodifiable old API to make this code a pub/sub module.  This
@@ -189,7 +176,6 @@ function awkbot_db_uptime (     result,row,rv) {
 # Read messages publish their results... second and third parameters are
 # "state" parameters for the listeners.
 
-"uptime"   == $1 { kernel_publish("uptime", $2, $3, awkbot_db_uptime())     }
 "info"     == $1 { kernel_publish("info",   $2, $3, awkbot_db_info($4))     }
 "karma"    == $1 { kernel_publish("karma",  $2, $3, awkbot_db_karma($4))    }
 "question" == $1 { kernel_publish("answer", $2, $3, awkbot_db_question($4)) }
