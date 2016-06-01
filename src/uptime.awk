@@ -6,12 +6,9 @@
 # this stuff is worth it, you can buy me a beer in return.   Scott S. McCoy
 # -----------------------------------------------------------------------------
 
+#use module.awk
 #use assert.awk
 #use time.awk
-
-BEGIN {
-    OFS = " "
-}
 
 function uptime_init () {
     start_time = time()
@@ -21,16 +18,12 @@ function format_duration (duration  ,offsets,labels,i,r,l,s) {
     r = split("1,60,60,24,7,4", offsets, /,/)
     l = split("seconds,minutes,hours,days,weeks,months", labels, /,/)
 
-    #assert( l == r, "Illegal state: number of errors and offsets differ" )
+    assert( l == r, "Illegal state: number of errors and offsets differ" )
 
     # Accumulate the offsets to toward the right
     for (i = 3; i <= l; i++) {
         offsets[i] = offsets[i] * offsets[i-1]
     }
-
-#    for (i = 1; i <= l; i++) {
-#        print labels[i], offsets[i]
-#    }
 
     r = ""
 
@@ -51,4 +44,5 @@ function uptime () {
     return time() - start_time
 }
 
-"uptime" == $1 { kernel_publish("uptime", $2, $3, format_duration(uptime())) }
+ "init"   == $1 { uptime_init()                                               }
+ "uptime" == $1 { kernel_publish("uptime", $2, $3, format_duration(uptime())) }
